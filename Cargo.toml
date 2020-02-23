@@ -1,5 +1,5 @@
 [package]
-name = "pega-texto-rs"
+name = "pegatexto"
 version = "0.1.0"
 authors = ["gilzoide <gilzoide@gmail.com>"]
 edition = "2018"
