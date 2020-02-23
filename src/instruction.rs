@@ -1,8 +1,10 @@
 use crate::expression::CharClass;
+use crate::opcode::Opcode;
 
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::cmp::Ordering;
-use std::fmt;
+use std::iter::Iterator;
+use std::ops::{Add, Sub};
 
 #[derive(Clone, Copy, Debug, Eq, Ord)]
 pub struct Address(u16);
@@ -19,6 +21,22 @@ impl PartialOrd for Address {
     }
 }
 
+impl Add<u16> for Address {
+    type Output = Self;
+
+    fn add(self, other: u16) -> Self::Output {
+        Address(self.0 + other)
+    }
+}
+
+impl Sub<u16> for Address {
+    type Output = Self;
+
+    fn sub(self, other: u16) -> Self::Output {
+        Address(self.0 - other)
+    }
+}
+
 impl From<[u8; 2]> for Address {
     fn from(bytes: [u8; 2]) -> Address {
         Address(u16::from_le_bytes(bytes))
@@ -31,32 +49,12 @@ impl From<Address> for [u8; 2] {
     }
 }
 
-#[derive(Debug)]
-#[repr(u8)]
-pub enum Opcode {
-    Nop,
-    Succeed,
-    Fail,
-    FailIfLessThan,
-    ToggleSuccess,
-    QcZero,
-    QcIncrement,
-    Jump,
-    JumpIfFail,
-    JumpIfSuccess,
-    Call,
-    Return,
-    Push,
-    Peek,
-    Pop,
-    Byte,
-    NotByte,
-    Class,
-    Literal,
-    Set,
-    Range,
-    Action,
+impl From<Address> for usize {
+    fn from(address: Address) -> usize {
+        address.0 as usize
+    }
 }
+
 
 #[derive(Debug)]
 pub enum Instruction<'a> {
@@ -114,33 +112,34 @@ impl Instruction<'_> {
     }
 }
 
-impl fmt::Display for Opcode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Opcode::*;
-        let assembly_code = match *self {
-            Nop => "nop",
-            Succeed => "succ",
-            Fail => "fail",
-            FailIfLessThan => "flt",
-            ToggleSuccess => "togl",
-            QcZero => "qcz",
-            QcIncrement => "qci",
-            Jump => "jmp",
-            JumpIfFail => "jmpf",
-            JumpIfSuccess => "jmps",
-            Call => "call",
-            Return => "ret",
-            Push => "push",
-            Peek => "peek",
-            Pop => "pop",
-            Byte => "byte",
-            NotByte => "nbyte",
-            Class => "cls",
-            Literal => "str",
-            Set => "set",
-            Range => "rng",
-            Action => "act",
-        };
-        write!(f, "{}", assembly_code)
+pub struct InstructionIterator<'a> {
+    bytes: &'a [u8],
+    current: usize,
+}
+
+impl<'a> InstructionIterator<'a> {
+    pub fn new(bytes: &'a [u8]) -> InstructionIterator {
+        InstructionIterator { bytes: bytes, current: 0 }
+    }
+
+    pub fn jump(&mut self, address: Address) {
+        self.current = usize::from(address);
     }
 }
+
+impl<'a> Iterator for InstructionIterator<'a> {
+    type Item = Instruction<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use Instruction::*;
+        if self.current >= self.bytes.len() {
+            None
+        }
+        else {
+            let opcode = Opcode::try_from(self.bytes[self.current]).unwrap();
+            self.current += 1;
+            Some(Nop)
+        }
+    }
+}
+
