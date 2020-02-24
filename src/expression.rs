@@ -1,45 +1,9 @@
-#[derive(Debug, Copy, Clone)]
-#[repr(u8)]
-pub enum CharClass {
-    Alphanumeric = b'w',
-    Alphabetic = b'a',
-    Control = b'c',
-    Digit = b'd',
-    Graphic = b'g',
-    Lowercase = b'l',
-    Punctuation = b'p',
-    Whitespace = b's',
-    Uppercase = b'u',
-    Hexadigit = b'x',
-}
-
-use std::convert::TryFrom;
-
-impl TryFrom<char> for CharClass {
-    type Error = &'static str;
-
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        use CharClass::*;
-        match value {
-            'w' => Ok(Alphanumeric),
-            'a' => Ok(Alphabetic),
-            'c' => Ok(Control),
-            'd' => Ok(Digit),
-            'g' => Ok(Graphic),
-            'l' => Ok(Lowercase),
-            'p' => Ok(Punctuation),
-            's' => Ok(Whitespace),
-            'u' => Ok(Uppercase),
-            'x' => Ok(Hexadigit),
-            _ => Err("Invalid character class"),
-        }
-    }
-}
+use crate::character_class::CharacterClass;
 
 pub enum Expression<'a> {
     Byte(char),
     Literal(&'a str),
-    Class(CharClass),
+    Class(CharacterClass),
     Set(&'a str),
     Range(char, char),
     Any,

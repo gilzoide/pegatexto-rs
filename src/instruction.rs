@@ -1,60 +1,10 @@
-use crate::expression::CharClass;
-use crate::opcode::Opcode;
+use crate::address::Address;
+use crate::character_class::{self, CharacterClass};
+use crate::opcode::{self, Opcode};
 
-use std::convert::{From, TryFrom};
-use std::cmp::Ordering;
+use std::array;
 use std::iter::Iterator;
-use std::ops::{Add, Sub};
-
-#[derive(Clone, Copy, Debug, Eq, Ord)]
-pub struct Address(u16);
-
-impl PartialEq for Address {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl PartialOrd for Address {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Add<u16> for Address {
-    type Output = Self;
-
-    fn add(self, other: u16) -> Self::Output {
-        Address(self.0 + other)
-    }
-}
-
-impl Sub<u16> for Address {
-    type Output = Self;
-
-    fn sub(self, other: u16) -> Self::Output {
-        Address(self.0 - other)
-    }
-}
-
-impl From<[u8; 2]> for Address {
-    fn from(bytes: [u8; 2]) -> Address {
-        Address(u16::from_le_bytes(bytes))
-    }
-}
-
-impl From<Address> for [u8; 2] {
-    fn from(address: Address) -> [u8; 2] {
-        address.0.to_le_bytes()
-    }
-}
-
-impl From<Address> for usize {
-    fn from(address: Address) -> usize {
-        address.0 as usize
-    }
-}
-
+use std::convert::{From, TryFrom, TryInto};
 
 #[derive(Debug)]
 pub enum Instruction<'a> {
@@ -75,11 +25,35 @@ pub enum Instruction<'a> {
     Pop,
     Byte(u8),
     NotByte(u8),
-    Class(CharClass),
+    Class(CharacterClass),
     Literal(&'a str),
     Set(&'a str),
     Range(char, char),
     Action,
+    Halt,
+}
+
+pub enum ParseError {
+    EmptyChunk,
+    InvalidOpcode,
+    InvalidCharacterClass,
+    MissingArgument,
+}
+
+impl From<opcode::TryFromByteError> for ParseError {
+    fn from(_: opcode::TryFromByteError) -> ParseError {
+        ParseError::InvalidOpcode
+    }
+}
+impl From<array::TryFromSliceError> for ParseError {
+    fn from(_: array::TryFromSliceError) -> ParseError {
+        ParseError::MissingArgument
+    }
+}
+impl From<character_class::TryFromU8> for ParseError {
+    fn from(_: character_class::TryFromU8) -> ParseError {
+        ParseError::InvalidCharacterClass
+    }
 }
 
 impl Instruction<'_> {
@@ -108,6 +82,7 @@ impl Instruction<'_> {
             Set(_) => Opcode::Set,
             Range(_, _) => Opcode::Range,
             Action => Opcode::Action,
+            Halt => panic!("Halt instruction has no opcode")
         }
     }
 }
@@ -125,20 +100,97 @@ impl<'a> InstructionIterator<'a> {
     pub fn jump(&mut self, address: Address) {
         self.current = usize::from(address);
     }
+
+    fn parse_byte_argument(bytes: &[u8]) -> Result<u8, ParseError> {
+        match bytes.get(1) {
+            Some(b) => Ok(*b),
+            None => Err(ParseError::MissingArgument),
+        }
+    }
+
+    fn parse_address_argument(bytes: &[u8]) -> Result<Address, ParseError> {
+        let first_bytes: [u8; 2] = bytes[1..].try_into()?;
+        Ok(Address::from(first_bytes))
+    }
+
+    fn parse(bytes: &[u8]) -> Result<(Instruction, usize), ParseError> {
+        use Instruction::*;
+        let opcode = match bytes.get(0) {
+            Some(byte) => Opcode::try_from(*byte)?,
+            None => return Err(ParseError::EmptyChunk),
+        };
+        match opcode {
+            Opcode::Nop => Ok((Nop, 1)),
+            Opcode::Succeed => Ok((Succeed, 1)),
+            Opcode::Fail => Ok((Fail, 1)),
+            Opcode::FailIfLessThan => {
+                let n = InstructionIterator::parse_byte_argument(bytes)?;
+                Ok((FailIfLessThan(n), 2))
+            },
+            Opcode::ToggleSuccess => Ok((ToggleSuccess, 1)),
+            Opcode::QcZero => Ok((QcZero, 1)),
+            Opcode::QcIncrement => Ok((QcIncrement, 1)),
+            Opcode::Jump => {
+                let address = InstructionIterator::parse_address_argument(bytes)?;
+                Ok((Jump(address), 3))
+            },
+            Opcode::JumpIfFail => {
+                let address = InstructionIterator::parse_address_argument(bytes)?;
+                Ok((JumpIfFail(address), 3))
+            },
+            Opcode::JumpIfSuccess => {
+                let address = InstructionIterator::parse_address_argument(bytes)?;
+                Ok((JumpIfSuccess(address), 3))
+            },
+            Opcode::Call => {
+                let address = InstructionIterator::parse_address_argument(bytes)?;
+                Ok((Call(address), 3))
+            },
+            Opcode::Return => Ok((Return, 1)),
+            Opcode::Push => Ok((Push, 1)),
+            Opcode::Peek => Ok((Peek, 1)),
+            Opcode::Pop => Ok((Pop, 1)),
+            Opcode::Byte => {
+                let b = InstructionIterator::parse_byte_argument(bytes)?;
+                Ok((Byte(b), 2))
+            },
+            Opcode::NotByte => {
+                let b = InstructionIterator::parse_byte_argument(bytes)?;
+                Ok((NotByte(b), 2))
+            },
+            Opcode::Class => {
+                let n = InstructionIterator::parse_byte_argument(bytes)?;
+                let char_class: CharacterClass = n.try_into()?;
+                Ok((Class(char_class), 2))
+            }
+            //Opcode::Literal => Ok((Literal, 1)),
+            //Opcode::Set => Ok((Set, 1)),
+            //Opcode::Range => Ok((Range, 1)),
+            //Opcode::Action => Ok((Action, 1)),
+            _ => Ok((Nop, 1))
+        }
+    }
 }
 
 impl<'a> Iterator for InstructionIterator<'a> {
     type Item = Instruction<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use Instruction::*;
         if self.current >= self.bytes.len() {
             None
         }
         else {
-            let opcode = Opcode::try_from(self.bytes[self.current]).unwrap();
-            self.current += 1;
-            Some(Nop)
+            let parse_result = InstructionIterator::parse(self.bytes);
+            match parse_result {
+                Ok((instruction, increment)) => {
+                    self.current += increment;
+                    Some(instruction)
+                },
+                Err(_error) => {
+                    self.current = self.bytes.len();
+                    Some(Instruction::Halt)
+                }
+            }
         }
     }
 }

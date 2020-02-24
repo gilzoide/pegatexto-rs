@@ -77,13 +77,15 @@ const OPCODE_ASSEMBLY_TABLE: [&'static str; 22] = [
     "act",
 ];
 
+pub struct TryFromByteError;
+
 impl TryFrom<u8> for Opcode {
-    type Error = &'static str;
+    type Error = TryFromByteError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let index = value as usize;
         if index >= OPCODE_TABLE.len() {
-            Err("Invalid opcode byte found")
+            Err(TryFromByteError)
         }
         else {
             Ok(OPCODE_TABLE[index])

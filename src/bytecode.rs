@@ -1,3 +1,4 @@
+use crate::address::Address;
 use crate::instruction::*;
 
 pub struct Bytecode(Vec<u8>);
