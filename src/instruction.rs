@@ -40,6 +40,7 @@ pub enum ParseError {
     EmptyChunk,
     InvalidOpcode,
     InvalidCharacterClass,
+    MissingStringTerminator,
     InvalidUtf8String,
     InvalidRange,
     MissingArgument,
@@ -131,7 +132,7 @@ macro_rules! parse_instruction_string {
     ($ctor:ident, $bytes:ident) => {
         {
             let string = InstructionIterator::parse_string_argument($bytes)?;
-            Ok(($ctor(string), 1 + string.len()))
+            Ok(($ctor(string), 1 + string.len() + 1))
         }
     }
 }
@@ -182,12 +183,15 @@ impl<'a> InstructionIterator<'a> {
     }
 
     fn parse_string_argument(bytes: &[u8]) -> Result<&str, ParseError> {
-        let s = match bytes.iter().enumerate().take_while(|(_, b)| **b != 0).last() {
+        if bytes.len() == 0 || bytes[0] == 0 {
+            return Err(ParseError::MissingArgument)
+        }
+        let s = match bytes.iter().enumerate().skip_while(|(_, b)| **b != 0).last() {
             Some((size_until_null, _last_byte)) => {
                 let slice = &bytes[0..size_until_null];
                 str::from_utf8(slice)?
             },
-            None => Err(ParseError::MissingArgument)?,
+            None => Err(ParseError::MissingStringTerminator)?,
         };
         Ok(s)
     }
@@ -334,8 +338,17 @@ mod tests {
         test_parse!([Opcode::Class as u8, 0], Err(ParseError::InvalidCharacterClass));
         test_parse!([Opcode::Class as u8], Err(ParseError::MissingArgument));
 
-        //Literal(&'a str),
-        //Set(&'a str),
+        test_parse!([Opcode::Literal as u8, b'h', b'e', b'l', b'l', b'o', 0], Ok((Instruction::Literal("hello"), 7)));
+        test_parse!([Opcode::Literal as u8, b'n', b'o', b'n', b'u', b'l'], Err(ParseError::MissingStringTerminator));
+        test_parse!([Opcode::Literal as u8, 159, 146, 150, 0], Err(ParseError::InvalidUtf8String));
+        test_parse!([Opcode::Literal as u8, 0], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::Literal as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::Set as u8, b'h', b'e', b'l', b'o', 0], Ok((Instruction::Set("helo"), 6)));
+        test_parse!([Opcode::Set as u8, b'!', b'n', b'u', b'l'], Err(ParseError::MissingStringTerminator));
+        test_parse!([Opcode::Set as u8, 159, 146, 150, 0], Err(ParseError::InvalidUtf8String));
+        test_parse!([Opcode::Set as u8, 0], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::Set as u8], Err(ParseError::MissingArgument));
 
         test_parse!([Opcode::Range as u8, b'0', b'9'], Ok((Instruction::Range(b'0', b'9'), 3)));
         test_parse!([Opcode::Range as u8, b'0', b'9', 0], Ok((Instruction::Range(b'0', b'9'), 3)));
