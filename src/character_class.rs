@@ -1,8 +1,8 @@
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum CharacterClass {
-    Alphanumeric = b'w',
     Alphabetic = b'a',
+    Alphanumeric = b'w',
     Control = b'c',
     Digit = b'd',
     Graphic = b'g',

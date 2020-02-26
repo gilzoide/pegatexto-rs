@@ -1,13 +1,14 @@
 use crate::address::Address;
 use crate::character_class::{self, CharacterClass};
 use crate::opcode::{self, Opcode};
+use crate::slice_to_array;
 
 use std::array;
 use std::iter::Iterator;
 use std::convert::{From, TryFrom, TryInto};
 use std::str;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Instruction<'a> {
     Nop,
     Succeed,
@@ -29,16 +30,18 @@ pub enum Instruction<'a> {
     Class(CharacterClass),
     Literal(&'a str),
     Set(&'a str),
-    Range(char, char),
+    Range(u8, u8),
     Action,
     Halt,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ParseError {
     EmptyChunk,
     InvalidOpcode,
     InvalidCharacterClass,
     InvalidUtf8String,
+    InvalidRange,
     MissingArgument,
 }
 
@@ -132,6 +135,15 @@ macro_rules! parse_instruction_string {
         }
     }
 }
+macro_rules! parse_instruction_range {
+    ($ctor:ident, $bytes:ident) => {
+        {
+            let (b_min, b_max) = InstructionIterator::parse_range_argument($bytes)?;
+            Ok(($ctor(b_min, b_max), 3))
+        }
+    }
+}
+
 
 impl<'a> InstructionIterator<'a> {
     pub fn new(bytes: &'a [u8]) -> InstructionIterator {
@@ -150,12 +162,27 @@ impl<'a> InstructionIterator<'a> {
     }
 
     fn parse_address_argument(bytes: &[u8]) -> Result<Address, ParseError> {
-        let first_bytes: [u8; 2] = bytes.try_into()?;
-        Ok(Address::from(first_bytes))
+        match slice_to_array!(bytes, u8, 2) {
+            Some(two_byte_array) => Ok(Address::from(two_byte_array)),
+            None => Err(ParseError::MissingArgument),
+        }
+    }
+
+    fn parse_range_argument(bytes: &[u8]) -> Result<(u8, u8), ParseError> {
+        match slice_to_array!(bytes, u8, 2) {
+            Some([b_min, b_max]) => {
+                if b_min < b_max {
+                    Ok((b_min, b_max))
+                } else {
+                    Err(ParseError::InvalidRange)
+                }
+            },
+            None => Err(ParseError::MissingArgument),
+        }
     }
 
     fn parse_string_argument(bytes: &[u8]) -> Result<&str, ParseError> {
-        let s = match bytes.iter().enumerate().take_while(|(_, b)| **b != 0u8).last() {
+        let s = match bytes.iter().enumerate().take_while(|(_, b)| **b != 0).last() {
             Some((size_until_null, _last_byte)) => {
                 let slice = &bytes[0..size_until_null];
                 str::from_utf8(slice)?
@@ -193,9 +220,8 @@ impl<'a> InstructionIterator<'a> {
             Opcode::Class => parse_instruction_character_class!(Class, bytes),
             Opcode::Literal => parse_instruction_string!(Literal, bytes),
             Opcode::Set => parse_instruction_string!(Set, bytes),
-            //Opcode::Range => Ok((Range, 1)),
-            //Opcode::Action => Ok((Action, 1)),
-            _ => Ok((Nop, 1))
+            Opcode::Range => parse_instruction_range!(Range, bytes),
+            Opcode::Action => Ok((Action, 1)),
         }
     }
 }
@@ -208,8 +234,7 @@ impl<'a> Iterator for InstructionIterator<'a> {
             None
         }
         else {
-            let parse_result = InstructionIterator::parse(self.bytes);
-            match parse_result {
+            match InstructionIterator::parse(self.bytes) {
                 Ok((instruction, increment)) => {
                     self.current += increment;
                     Some(instruction)
@@ -223,3 +248,105 @@ impl<'a> Iterator for InstructionIterator<'a> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! test_parse {
+        ($array:expr, $result:expr) => {
+            assert_eq!(InstructionIterator::parse(&$array), $result)
+        }
+    }
+
+    #[test]
+    fn test_instruction_parser() {
+        test_parse!([Opcode::Nop as u8], Ok((Instruction::Nop, 1)));
+        test_parse!([Opcode::Nop as u8, 1, 2, 3], Ok((Instruction::Nop, 1)));
+        
+        test_parse!([Opcode::Succeed as u8], Ok((Instruction::Succeed, 1)));
+        
+        test_parse!([Opcode::Fail as u8], Ok((Instruction::Fail, 1)));
+        
+        test_parse!([Opcode::FailIfLessThan as u8, 1], Ok((Instruction::FailIfLessThan(1), 2)));
+        test_parse!([Opcode::FailIfLessThan as u8, 255], Ok((Instruction::FailIfLessThan(255), 2)));
+        test_parse!([Opcode::FailIfLessThan as u8, 255, 0], Ok((Instruction::FailIfLessThan(255), 2)));
+        test_parse!([Opcode::FailIfLessThan as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::ToggleSuccess as u8], Ok((Instruction::ToggleSuccess, 1)));
+        
+        test_parse!([Opcode::QcZero as u8], Ok((Instruction::QcZero, 1)));
+        
+        test_parse!([Opcode::QcIncrement as u8], Ok((Instruction::QcIncrement, 1)));
+
+        test_parse!([Opcode::Jump as u8, 42, 0], Ok((Instruction::Jump(Address::new(42)), 3)));
+        test_parse!([Opcode::Jump as u8, 42, 0, 255], Ok((Instruction::Jump(Address::new(42)), 3)));
+        test_parse!([Opcode::Jump as u8, 0, 1], Ok((Instruction::Jump(Address::new(256)), 3)));
+        test_parse!([Opcode::Jump as u8, 42], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::Jump as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::JumpIfFail as u8, 42, 0], Ok((Instruction::JumpIfFail(Address::new(42)), 3)));
+        test_parse!([Opcode::JumpIfFail as u8, 42, 0, 255], Ok((Instruction::JumpIfFail(Address::new(42)), 3)));
+        test_parse!([Opcode::JumpIfFail as u8, 0, 1], Ok((Instruction::JumpIfFail(Address::new(256)), 3)));
+        test_parse!([Opcode::JumpIfFail as u8, 42], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::JumpIfFail as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::JumpIfSuccess as u8, 42, 0], Ok((Instruction::JumpIfSuccess(Address::new(42)), 3)));
+        test_parse!([Opcode::JumpIfSuccess as u8, 42, 0, 255], Ok((Instruction::JumpIfSuccess(Address::new(42)), 3)));
+        test_parse!([Opcode::JumpIfSuccess as u8, 0, 1], Ok((Instruction::JumpIfSuccess(Address::new(256)), 3)));
+        test_parse!([Opcode::JumpIfSuccess as u8, 42], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::JumpIfSuccess as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::Call as u8, 42, 0], Ok((Instruction::Call(Address::new(42)), 3)));
+        test_parse!([Opcode::Call as u8, 42, 0, 255], Ok((Instruction::Call(Address::new(42)), 3)));
+        test_parse!([Opcode::Call as u8, 0, 1], Ok((Instruction::Call(Address::new(256)), 3)));
+        test_parse!([Opcode::Call as u8, 42], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::Call as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::Return as u8], Ok((Instruction::Return, 1)));
+
+        test_parse!([Opcode::Push as u8], Ok((Instruction::Push, 1)));
+        
+        test_parse!([Opcode::Peek as u8], Ok((Instruction::Peek, 1)));
+        
+        test_parse!([Opcode::Pop as u8], Ok((Instruction::Pop, 1)));
+
+        test_parse!([Opcode::Byte as u8, 0], Ok((Instruction::Byte(0), 2)));
+        test_parse!([Opcode::Byte as u8, 255], Ok((Instruction::Byte(255), 2)));
+        test_parse!([Opcode::Byte as u8, 255, 0], Ok((Instruction::Byte(255), 2)));
+        test_parse!([Opcode::Byte as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::NotByte as u8, 0], Ok((Instruction::NotByte(0), 2)));
+        test_parse!([Opcode::NotByte as u8, 255], Ok((Instruction::NotByte(255), 2)));
+        test_parse!([Opcode::NotByte as u8, 255, 0], Ok((Instruction::NotByte(255), 2)));
+        test_parse!([Opcode::NotByte as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::Class as u8, b'a'], Ok((Instruction::Class(CharacterClass::Alphabetic), 2)));
+        test_parse!([Opcode::Class as u8, b'w'], Ok((Instruction::Class(CharacterClass::Alphanumeric), 2)));
+        test_parse!([Opcode::Class as u8, b'c'], Ok((Instruction::Class(CharacterClass::Control), 2)));
+        test_parse!([Opcode::Class as u8, b'd'], Ok((Instruction::Class(CharacterClass::Digit), 2)));
+        test_parse!([Opcode::Class as u8, b'g'], Ok((Instruction::Class(CharacterClass::Graphic), 2)));
+        test_parse!([Opcode::Class as u8, b'l'], Ok((Instruction::Class(CharacterClass::Lowercase), 2)));
+        test_parse!([Opcode::Class as u8, b'p'], Ok((Instruction::Class(CharacterClass::Punctuation), 2)));
+        test_parse!([Opcode::Class as u8, b's'], Ok((Instruction::Class(CharacterClass::Whitespace), 2)));
+        test_parse!([Opcode::Class as u8, b'u'], Ok((Instruction::Class(CharacterClass::Uppercase), 2)));
+        test_parse!([Opcode::Class as u8, b'x'], Ok((Instruction::Class(CharacterClass::Hexadigit), 2)));
+        test_parse!([Opcode::Class as u8, b'x', 0], Ok((Instruction::Class(CharacterClass::Hexadigit), 2)));
+        test_parse!([Opcode::Class as u8, 0], Err(ParseError::InvalidCharacterClass));
+        test_parse!([Opcode::Class as u8], Err(ParseError::MissingArgument));
+
+        //Literal(&'a str),
+        //Set(&'a str),
+
+        test_parse!([Opcode::Range as u8, b'0', b'9'], Ok((Instruction::Range(b'0', b'9'), 3)));
+        test_parse!([Opcode::Range as u8, b'0', b'9', 0], Ok((Instruction::Range(b'0', b'9'), 3)));
+        test_parse!([Opcode::Range as u8, b'9', b'9'], Err(ParseError::InvalidRange));
+        test_parse!([Opcode::Range as u8, b'9', b'0'], Err(ParseError::InvalidRange));
+        test_parse!([Opcode::Range as u8, b'9'], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::Range as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::Action as u8], Ok((Instruction::Action, 1)));
+
+        test_parse!([Opcode::Action as u8 + 1], Err(ParseError::InvalidOpcode));
+        test_parse!([255], Err(ParseError::InvalidOpcode));
+    }
+}

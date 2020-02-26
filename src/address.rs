@@ -5,6 +5,12 @@ use std::ops::{Add, Sub};
 #[derive(Clone, Copy, Debug, Eq, Ord)]
 pub struct Address(u16);
 
+impl Address {
+    pub fn new(address: u16) -> Address {
+        Address(address)
+    }
+}
+
 impl PartialEq for Address {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
