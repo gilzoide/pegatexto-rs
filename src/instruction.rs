@@ -32,7 +32,7 @@ pub enum Instruction<'a> {
     Set(&'a str),
     Range(u8, u8),
     Action,
-    Halt,
+    Halt(ParseError),
 }
 
 #[derive(Debug, PartialEq)]
@@ -93,7 +93,7 @@ impl Instruction<'_> {
             Set(_) => Opcode::Set,
             Range(_, _) => Opcode::Range,
             Action => Opcode::Action,
-            Halt => panic!("Halt instruction has no opcode")
+            Halt(_) => panic!("Halt instruction has no opcode")
         }
     }
 }
@@ -238,14 +238,15 @@ impl<'a> Iterator for InstructionIterator<'a> {
             None
         }
         else {
-            match InstructionIterator::parse(self.bytes) {
+            let slice = &self.bytes[self.current..];
+            match InstructionIterator::parse(slice) {
                 Ok((instruction, increment)) => {
                     self.current += increment;
                     Some(instruction)
                 },
-                Err(_error) => {
-                    self.current = self.bytes.len();
-                    Some(Instruction::Halt)
+                Err(error) => {
+                    self.current = usize::max_value();
+                    Some(Instruction::Halt(error))
                 }
             }
         }
@@ -361,5 +362,33 @@ mod tests {
 
         test_parse!([Opcode::Action as u8 + 1], Err(ParseError::InvalidOpcode));
         test_parse!([255], Err(ParseError::InvalidOpcode));
+    }
+
+    #[test]
+    fn test_iterator() {
+        // \w*
+        let bytecode = [
+            Opcode::Class as u8, b'w',
+            Opcode::JumpIfSuccess as u8, 0, 0,
+            Opcode::Succeed as u8,
+        ];
+        let mut iter = InstructionIterator::new(&bytecode);
+        assert_eq!(iter.next().unwrap(), Instruction::Class(CharacterClass::Alphanumeric));
+        assert_eq!(iter.next().unwrap(), Instruction::JumpIfSuccess(Address::new(0)));
+        assert_eq!(iter.next().unwrap(), Instruction::Succeed);
+        assert_eq!(iter.next(), None);
+
+        let empty_bytecode = [];
+        let mut iter = InstructionIterator::new(&empty_bytecode);
+        assert_eq!(iter.next(), None);
+
+        let faulty_bytecode = [
+            Opcode::Class as u8, b'w',
+            Opcode::JumpIfSuccess as u8, 0,
+        ];
+        let mut iter = InstructionIterator::new(&faulty_bytecode);
+        assert_eq!(iter.next().unwrap(), Instruction::Class(CharacterClass::Alphanumeric));
+        assert_eq!(iter.next().unwrap(), Instruction::Halt(ParseError::MissingArgument));
+        assert_eq!(iter.next(), None);
     }
 }

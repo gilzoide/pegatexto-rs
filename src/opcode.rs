@@ -52,7 +52,7 @@ const OPCODE_TABLE: [Opcode; 22] = [
     Opcode::Action,
 ];
 
-const OPCODE_ASSEMBLY_TABLE: [&'static str; 22] = [
+const OPCODE_ASSEMBLY_TABLE: [&str; 22] = [
     "nop",
     "succ",
     "fail",

@@ -23,8 +23,8 @@ impl TryFrom<u8> for CharacterClass {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         use CharacterClass::*;
         match value {
-            b'w' => Ok(Alphanumeric),
             b'a' => Ok(Alphabetic),
+            b'w' => Ok(Alphanumeric),
             b'c' => Ok(Control),
             b'd' => Ok(Digit),
             b'g' => Ok(Graphic),
