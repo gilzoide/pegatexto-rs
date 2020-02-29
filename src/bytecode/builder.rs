@@ -1,6 +1,8 @@
+use super::Bytecode;
 use super::address::Address;
 use super::instruction::*;
 
+#[derive(Clone)]
 pub struct Builder(Vec<u8>);
 
 impl Builder {
@@ -8,8 +10,8 @@ impl Builder {
         Builder(Vec::new())
     }
 
-    pub fn build(&self) -> Vec<u8> {
-        self.0.clone()
+    pub fn build(self) -> Bytecode {
+        Bytecode::from_bytes_unchecked(self.0)
     }
 
     pub fn push_instruction(&mut self, instruction: &Instruction) -> usize {
