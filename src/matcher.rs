@@ -19,17 +19,11 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
 
     let mut state_stack = vec![MatchState { sp, qc, ac }];
 
-    fn get_next_byte(text_slice: &str) -> Result<u8, MatchError> {
-        match text_slice.as_bytes().get(0) {
-            Some(b) => Ok(*b),
-            None => Err(MatchError::NoMatch),
-        }
+    fn get_next_byte(text_slice: &str) -> Option<u8> {
+        text_slice.as_bytes().get(0).copied()
     }
-    fn get_next_char(text_slice: &str) -> Result<char, MatchError> {
-        match text_slice.chars().next() {
-            Some(c) => Ok(c),
-            None => Err(MatchError::NoMatch),
-        }
+    fn get_next_char(text_slice: &str) -> Option<char> {
+        text_slice.chars().next()
     }
 
     let mut iter = InstructionIterator::new(&bytecode);
@@ -91,25 +85,36 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 state_stack.pop();
             },
             Instruction::Byte(b) => {
-                let next_byte = get_next_byte(text_slice)?;
-                success_flag = next_byte == b;
+                success_flag = match get_next_byte(text_slice) {
+                    Some(next_byte) => next_byte == b,
+                    None => false,
+                };
                 if success_flag {
                     sp += 1;
                 }
             },
             Instruction::NotByte(b) => {
-                let next_byte = get_next_byte(text_slice)?;
-                success_flag = next_byte != b;
+                success_flag = match get_next_byte(text_slice) {
+                    Some(next_byte) => next_byte != b,
+                    None => false,
+                };
                 if success_flag {
                     sp += 1;
                 }
             },
             Instruction::Class(c) => {
-                let next_char = get_next_char(text_slice)?;
-                success_flag = c.is_member(next_char);
-                if success_flag {
-                    sp += next_char.len_utf8();
-                }
+                success_flag = match get_next_char(text_slice) {
+                    Some(next_char) => {
+                        if c.is_member(next_char) {
+                            sp += next_char.len_utf8();
+                            true
+                        }
+                        else {
+                            false
+                        }
+                    },
+                    None => false,
+                };
             },
             Instruction::Literal(s) => {
                 success_flag = text_slice.starts_with(s);
@@ -118,15 +123,19 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 }
             },
             Instruction::Set(s) => {
-                let next_char = get_next_char(text_slice)?;
-                success_flag = s.contains(next_char);
+                success_flag = match get_next_char(text_slice) {
+                    Some(next_char) => s.contains(next_char),
+                    None => false,
+                };
                 if success_flag {
                     sp += 1;
                 }
             },
             Instruction::Range(b_min, b_max) => {
-                let next_byte = get_next_byte(text_slice)?;
-                success_flag = next_byte >= b_min && next_byte <= b_max;
+                success_flag = match get_next_byte(text_slice) {
+                    Some(next_byte) => next_byte >= b_min && next_byte <= b_max,
+                    None => false,
+                };
                 if success_flag {
                     sp += 1;
                 }
