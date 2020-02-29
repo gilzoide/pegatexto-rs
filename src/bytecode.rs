@@ -4,6 +4,8 @@ pub mod instruction;
 pub mod opcode;
 pub mod parser;
 
+use std::ops::Deref;
+
 #[derive(Clone)]
 pub struct Bytecode(Vec<u8>);
 
@@ -22,6 +24,14 @@ impl Bytecode {
 
     pub fn from_bytes_unchecked(bytes: Vec<u8>) -> Bytecode {
         Bytecode(bytes)
+    }
+}
+
+impl Deref for Bytecode {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

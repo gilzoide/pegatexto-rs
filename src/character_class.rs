@@ -13,6 +13,24 @@ pub enum CharacterClass {
     Hexadigit = b'x',
 }
 
+impl CharacterClass {
+    pub fn is_member(&self, c: char) -> bool {
+        use CharacterClass::*;
+        match *self {
+            Alphabetic => c.is_alphabetic(),
+            Alphanumeric => c.is_alphanumeric(),
+            Control => c.is_control(),
+            Digit => c.is_digit(10),
+            Graphic => c.is_ascii_graphic(),
+            Lowercase => c.is_lowercase(),
+            Punctuation => c.is_ascii_punctuation(),
+            Whitespace => c.is_whitespace(),
+            Uppercase => c.is_uppercase(),
+            Hexadigit => c.is_digit(16),
+        }
+    }
+}
+
 use std::convert::TryFrom;
 
 pub struct TryFromU8;
