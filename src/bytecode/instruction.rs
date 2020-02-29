@@ -29,7 +29,7 @@ pub enum Instruction<'a> {
     Set(&'a str),
     Range(u8, u8),
     Action,
-    Halt(ParseError),
+    Halt(Option<ParseError>),
 }
 
 impl Instruction<'_> {
@@ -58,7 +58,7 @@ impl Instruction<'_> {
             Set(_) => Opcode::Set,
             Range(_, _) => Opcode::Range,
             Action => Opcode::Action,
-            Halt(_) => panic!("Halt instruction has no opcode")
+            Halt(_) => Opcode::Halt,
         }
     }
 }
@@ -94,7 +94,7 @@ impl<'a> Iterator for InstructionIterator<'a> {
                 },
                 Err(error) => {
                     self.current = usize::max_value();
-                    Some(Instruction::Halt(error))
+                    Some(Instruction::Halt(Some(error)))
                 }
             }
         }
@@ -130,7 +130,7 @@ mod tests {
         ];
         let mut iter = InstructionIterator::new(&faulty_bytecode);
         assert_eq!(iter.next().unwrap(), Instruction::Class(CharacterClass::Alphanumeric));
-        assert_eq!(iter.next().unwrap(), Instruction::Halt(ParseError::MissingArgument));
+        assert_eq!(iter.next().unwrap(), Instruction::Halt(Some(ParseError::MissingArgument)));
         assert_eq!(iter.next(), None);
     }
 }

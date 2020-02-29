@@ -153,6 +153,7 @@ pub fn parse_instruction(bytes: &[u8]) -> Result<(Instruction, usize), ParseErro
         Opcode::Set => parse_instruction_string!(Set, bytes),
         Opcode::Range => parse_instruction_range!(Range, bytes),
         Opcode::Action => Ok((Action, 1)),
+        Opcode::Halt => Ok((Halt(None), 1)),
     }
 }
 
@@ -264,7 +265,9 @@ mod tests {
 
         test_parse!([Opcode::Action as u8], Ok((Instruction::Action, 1)));
 
-        test_parse!([Opcode::Action as u8 + 1], Err(ParseError::InvalidOpcode));
+        test_parse!([Opcode::Halt as u8], Ok((Instruction::Halt(None), 1)));
+
+        test_parse!([Opcode::Halt as u8 + 1], Err(ParseError::InvalidOpcode));
         test_parse!([255], Err(ParseError::InvalidOpcode));
     }
 }

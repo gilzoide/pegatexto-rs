@@ -25,9 +25,10 @@ pub enum Opcode {
     Set,
     Range,
     Action,
+    Halt,
 }
 
-const OPCODE_TABLE: [Opcode; 22] = [
+const OPCODE_TABLE: [Opcode; 23] = [
     Opcode::Nop,
     Opcode::Succeed,
     Opcode::Fail,
@@ -50,9 +51,10 @@ const OPCODE_TABLE: [Opcode; 22] = [
     Opcode::Set,
     Opcode::Range,
     Opcode::Action,
+    Opcode::Halt,
 ];
 
-const OPCODE_ASSEMBLY_TABLE: [&str; 22] = [
+const OPCODE_ASSEMBLY_TABLE: [&str; 23] = [
     "nop",
     "succ",
     "fail",
@@ -75,6 +77,7 @@ const OPCODE_ASSEMBLY_TABLE: [&str; 22] = [
     "set",
     "rng",
     "act",
+    "halt",
 ];
 
 pub struct TryFromByteError;
