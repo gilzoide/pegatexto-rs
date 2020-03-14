@@ -3,6 +3,7 @@ use super::opcode::Opcode;
 use super::parser::{self, ParseError};
 use crate::character_class::CharacterClass;
 
+use std::fmt;
 use std::iter::Iterator;
 
 #[derive(Debug, PartialEq)]
@@ -63,6 +64,25 @@ impl Instruction<'_> {
     }
 }
 
+impl fmt::Display for Instruction<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Instruction::*;
+        let res = write!(f, "{}", self.opcode());
+        match *self {
+            FailIfLessThan(n) => write!(f, " {}", n),
+            Jump(address) | JumpIfFail(address) | JumpIfSuccess(address) | Call(address) => {
+                write!(f, " {}", address)
+            },
+            Byte(byte) | NotByte(byte) => write!(f, " '{}'", byte as char),
+            Class(character_class) => write!(f, " \\{}", character_class as u8 as char),
+            Literal(string) | Set(string) => write!(f, " {:?}", string),
+            //Range(_, _) => Opcode::Range,
+            //Halt(_) => Opcode::Halt,
+            _ => res
+        }
+    }
+}
+
 pub struct InstructionIterator<'a> {
     bytes: &'a [u8],
     current: usize,
@@ -75,6 +95,10 @@ impl<'a> InstructionIterator<'a> {
 
     pub fn jump(&mut self, address: Address) {
         self.current = usize::from(address);
+    }
+
+    pub fn current(&self) -> usize {
+        self.current
     }
 }
 

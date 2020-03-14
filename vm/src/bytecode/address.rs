@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::convert::From;
+use std::fmt;
 use std::ops::{Add, Sub};
 
 #[derive(Clone, Copy, Debug, Eq, Ord)]
@@ -54,6 +55,12 @@ impl From<Address> for [u8; 2] {
 impl From<Address> for usize {
     fn from(address: Address) -> usize {
         address.0 as usize
+    }
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

@@ -1,2 +1,2 @@
 [workspace]
-members = ["vm", "compiler"]
+members = ["vm", "disassembler"]
