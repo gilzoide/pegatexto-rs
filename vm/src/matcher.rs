@@ -3,6 +3,7 @@ use crate::bytecode::instruction::{Instruction, InstructionIterator};
 
 pub enum MatchError {
     NoMatch,
+    UnmatchedPop,
 }
 
 struct MatchState {
@@ -82,7 +83,9 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 }
             },
             Instruction::Pop => {
-                state_stack.pop();
+                if state_stack.pop().is_none() {
+                    return Err(MatchError::UnmatchedPop);
+                }
             },
             Instruction::Byte(b) => {
                 success_flag = match get_next_byte(text_slice) {
@@ -146,10 +149,21 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
             Instruction::Halt(_opt_err) => break,
         }
     }
+
     if success_flag {
         Ok(sp)
     }
     else {
         Err(MatchError::NoMatch)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_match() {
+
     }
 }
