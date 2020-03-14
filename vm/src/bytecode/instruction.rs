@@ -76,7 +76,7 @@ impl fmt::Display for Instruction<'_> {
             Byte(byte) | NotByte(byte) => write!(f, " '{}'", byte as char),
             Class(character_class) => write!(f, " \\{}", character_class as u8 as char),
             Literal(string) | Set(string) => write!(f, " {:?}", string),
-            //Range(_, _) => Opcode::Range,
+            Range(min, max) => write!(f, " [{}-{}]", min as char, max as char),
             //Halt(_) => Opcode::Halt,
             _ => res
         }
