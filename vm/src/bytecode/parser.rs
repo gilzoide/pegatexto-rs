@@ -113,7 +113,7 @@ fn parse_string_argument(bytes: &[u8]) -> Result<&str, ParseError> {
     if bytes.len() == 0 || bytes[0] == 0 {
         return Err(ParseError::MissingArgument)
     }
-    let s = match bytes.iter().enumerate().skip_while(|(_, b)| **b != 0).last() {
+    let s = match bytes.iter().enumerate().skip_while(|(_, b)| **b != 0).next() {
         Some((size_until_null, _last_byte)) => {
             let slice = &bytes[0..size_until_null];
             str::from_utf8(slice)?
