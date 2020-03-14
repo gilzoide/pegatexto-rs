@@ -100,6 +100,10 @@ impl<'a> InstructionIterator<'a> {
     pub fn current(&self) -> usize {
         self.current
     }
+
+    pub fn bytes_len(&self) -> usize {
+        self.bytes.len()
+    }
 }
 
 impl<'a> Iterator for InstructionIterator<'a> {
