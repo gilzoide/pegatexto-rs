@@ -1,7 +1,7 @@
 use super::address::Address;
 use super::opcode::Opcode;
 use super::parser::{self, ParseError};
-use crate::character_class::CharacterClass;
+use crate::grammar::character_class::CharacterClass;
 
 use std::fmt;
 use std::iter::Iterator;
@@ -11,10 +11,10 @@ pub enum Instruction<'a> {
     Nop,
     Succeed,
     Fail,
-    FailIfLessThan(u8),
     ToggleSuccess,
-    QcZero,
-    QcIncrement,
+    QuantifierInit,
+    QuantifierLeast(u8),
+    QuantifierExact(u8),
     Jump(Address),
     JumpIfFail(Address),
     JumpIfSuccess(Address),
@@ -40,10 +40,10 @@ impl Instruction<'_> {
             Nop => Opcode::Nop,
             Succeed => Opcode::Succeed,
             Fail => Opcode::Fail,
-            FailIfLessThan(_) => Opcode::FailIfLessThan,
             ToggleSuccess => Opcode::ToggleSuccess,
-            QcZero => Opcode::QcZero,
-            QcIncrement => Opcode::QcIncrement,
+            QuantifierInit => Opcode::QuantifierInit,
+            QuantifierLeast(_) => Opcode::QuantifierLeast,
+            QuantifierExact(_) => Opcode::QuantifierExact,
             Jump(_) => Opcode::Jump,
             JumpIfFail(_) => Opcode::JumpIfFail,
             JumpIfSuccess(_) => Opcode::JumpIfSuccess,
@@ -69,7 +69,7 @@ impl fmt::Display for Instruction<'_> {
         use Instruction::*;
         let res = write!(f, "{}", self.opcode());
         match *self {
-            FailIfLessThan(n) => write!(f, " {}", n),
+            QuantifierLeast(n) | QuantifierExact(n) => write!(f, " {}", n),
             Jump(address) | JumpIfFail(address) | JumpIfSuccess(address) | Call(address) => {
                 write!(f, " {}", address)
             },
@@ -85,19 +85,19 @@ impl fmt::Display for Instruction<'_> {
 
 pub struct InstructionIterator<'a> {
     bytes: &'a [u8],
-    current: usize,
+    current: Address,
 }
 
 impl<'a> InstructionIterator<'a> {
     pub fn new(bytes: &'a [u8]) -> InstructionIterator {
-        InstructionIterator { bytes: bytes, current: 0 }
+        InstructionIterator { bytes: bytes, current: Address::new(0) }
     }
 
     pub fn jump(&mut self, address: Address) {
-        self.current = usize::from(address);
+        self.current = address;
     }
 
-    pub fn current(&self) -> usize {
+    pub fn current(&self) -> Address {
         self.current
     }
 
@@ -110,18 +110,19 @@ impl<'a> Iterator for InstructionIterator<'a> {
     type Item = Instruction<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current >= self.bytes.len() {
+        let current: usize = self.current.into();
+        if current >= self.bytes.len() {
             None
         }
         else {
-            let slice = &self.bytes[self.current..];
+            let slice = &self.bytes[current..];
             match parser::parse_instruction(slice) {
                 Ok((instruction, increment)) => {
-                    self.current += increment;
+                    self.current += increment as u16;
                     Some(instruction)
                 },
                 Err(error) => {
-                    self.current = usize::max_value();
+                    self.current = Address::max_value();
                     Some(Instruction::Halt(Some(error)))
                 }
             }

@@ -1,4 +1,5 @@
 use crate::bytecode::Bytecode;
+use crate::bytecode::address::Address;
 use crate::bytecode::instruction::{Instruction, InstructionIterator};
 
 pub enum MatchError {
@@ -6,19 +7,19 @@ pub enum MatchError {
     UnmatchedPop,
 }
 
+#[derive(Clone, Copy)]
 struct MatchState {
     sp: usize,
     qc: i32,
     ac: i32,
+    ip: Address,
 }
 
 pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
     let mut success_flag = true;
-    let mut sp = 0_usize;
-    let mut qc = 0;
-    let mut ac = 0;
 
-    let mut state_stack = vec![MatchState { sp, qc, ac }];
+    let mut state = MatchState { sp: 0, qc: 0, ac: 0, ip: Address::new(0) };
+    let mut state_stack = vec![state];
 
     fn get_next_byte(text_slice: &str) -> Option<u8> {
         text_slice.as_bytes().get(0).copied()
@@ -26,10 +27,24 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
     fn get_next_char(text_slice: &str) -> Option<char> {
         text_slice.chars().next()
     }
+    fn peek(state_stack: &Vec<MatchState>) -> Result<MatchState, MatchError> {
+        match state_stack.last() {
+            Some(state) => Ok(*state),
+            None => Err(MatchError::UnmatchedPop),
+        }
+    }
+    fn pop(state_stack: &mut Vec<MatchState>) -> Result<(), MatchError> {
+        if state_stack.pop().is_none() {
+            Err(MatchError::UnmatchedPop)
+        }
+        else { 
+            Ok(())
+        }
+    }
 
     let mut iter = InstructionIterator::new(&bytecode);
     while let Some(instruction) = iter.next() {
-        let text_slice = &text[sp..];
+        let text_slice = &text[state.sp..];
         match instruction {
             Instruction::Nop => (),
             Instruction::Succeed => {
@@ -38,17 +53,41 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
             Instruction::Fail => {
                 success_flag = false;
             },
-            Instruction::FailIfLessThan(n) => {
-                success_flag = qc >= n as i32;
-            },
             Instruction::ToggleSuccess => {
                 success_flag = !success_flag;
             },
-            Instruction::QcZero => {
-                qc = 0;
+            Instruction::QuantifierInit => {
+                state.ip = iter.current() + 1;
+                state_stack.push(state);
+                state.qc = 0;
             },
-            Instruction::QcIncrement => {
-                qc += 1;
+            Instruction::QuantifierLeast(n) => {
+                if success_flag {
+                    state.qc += 1;
+                    iter.jump(state.ip);
+                }
+                else {
+                    success_flag = state.qc >= n as i32;
+                    if !success_flag {
+                        state = peek(&state_stack)?;
+                    }
+                    pop(&mut state_stack)?;
+                }
+            },
+            Instruction::QuantifierExact(n) => {
+                if success_flag {
+                    state.qc += 1;
+                    if state.qc < n as i32 {
+                        iter.jump(state.ip);
+                    }
+                    else {
+                        pop(&mut state_stack)?;
+                    }
+                }
+                else {
+                    state = peek(&state_stack)?;
+                    pop(&mut state_stack)?;
+                }
             },
             Instruction::Jump(addr) => {
                 iter.jump(addr);
@@ -64,28 +103,20 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 }
             },
             Instruction::Call(_) => {
+                state.ip = iter.current() + 1;
                 // TODO
             },
             Instruction::Return => {
                 // TODO
             },
             Instruction::Push => {
-                state_stack.push(MatchState { sp, qc, ac });
+                state_stack.push(state);
             },
             Instruction::Peek => {
-                match state_stack.last() {
-                    Some(state) => {
-                        sp = state.sp;
-                        qc = state.qc;
-                        ac = state.ac;
-                    },
-                    None => (),
-                }
+                state = peek(&mut state_stack)?;
             },
             Instruction::Pop => {
-                if state_stack.pop().is_none() {
-                    return Err(MatchError::UnmatchedPop);
-                }
+                pop(&mut state_stack)?;
             },
             Instruction::Byte(b) => {
                 success_flag = match get_next_byte(text_slice) {
@@ -93,7 +124,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                     None => false,
                 };
                 if success_flag {
-                    sp += 1;
+                    state.sp += 1;
                 }
             },
             Instruction::NotByte(b) => {
@@ -102,14 +133,14 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                     None => false,
                 };
                 if success_flag {
-                    sp += 1;
+                    state.sp += 1;
                 }
             },
             Instruction::Class(c) => {
                 success_flag = match get_next_char(text_slice) {
                     Some(next_char) => {
                         if c.is_member(next_char) {
-                            sp += next_char.len_utf8();
+                            state.sp += next_char.len_utf8();
                             true
                         }
                         else {
@@ -122,7 +153,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
             Instruction::Literal(s) => {
                 success_flag = text_slice.starts_with(s);
                 if success_flag {
-                    sp += s.len();
+                    state.sp += s.len();
                 }
             },
             Instruction::Set(s) => {
@@ -131,7 +162,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                     None => false,
                 };
                 if success_flag {
-                    sp += 1;
+                    state.sp += 1;
                 }
             },
             Instruction::Range(b_min, b_max) => {
@@ -140,7 +171,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                     None => false,
                 };
                 if success_flag {
-                    sp += 1;
+                    state.sp += 1;
                 }
             },
             Instruction::Action => {
@@ -151,7 +182,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
     }
 
     if success_flag {
-        Ok(sp)
+        Ok(state.sp)
     }
     else {
         Err(MatchError::NoMatch)

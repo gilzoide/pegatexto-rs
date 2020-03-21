@@ -20,7 +20,7 @@ impl Builder {
         self.push_byte(opcode as u8);
         use Instruction::*;
         match instruction {
-            FailIfLessThan(n) => self.push_byte(*n),
+            QuantifierLeast(n) | QuantifierExact(n) => self.push_byte(*n),
             Jump(addr) | JumpIfFail(addr) | JumpIfSuccess(addr) | Call(addr) => {
                 self.push_address(*addr);
             },

@@ -1,5 +1,4 @@
 pub mod bytecode;
-pub mod character_class;
-pub mod expression;
+pub mod grammar;
 pub mod matcher;
 mod utils;

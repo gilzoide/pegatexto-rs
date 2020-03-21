@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::convert::From;
 use std::fmt;
-use std::ops::{Add, Sub};
+use std::ops::{Add, Sub, AddAssign, SubAssign, Deref};
 
 #[derive(Clone, Copy, Debug, Eq, Ord)]
 pub struct Address(u16);
@@ -9,6 +9,10 @@ pub struct Address(u16);
 impl Address {
     pub fn new(address: u16) -> Address {
         Address(address)
+    }
+
+    pub fn max_value() -> Address {
+        Address::new(u16::max_value())
     }
 }
 
@@ -40,6 +44,18 @@ impl Sub<u16> for Address {
     }
 }
 
+impl AddAssign<u16> for Address {
+    fn add_assign(&mut self, other: u16) {
+        self.0 += other
+    }
+}
+
+impl SubAssign<u16> for Address {
+    fn sub_assign(&mut self, other: u16) {
+        self.0 -= other
+    }
+}
+
 impl From<[u8; 2]> for Address {
     fn from(bytes: [u8; 2]) -> Address {
         Address(u16::from_le_bytes(bytes))
@@ -55,6 +71,13 @@ impl From<Address> for [u8; 2] {
 impl From<Address> for usize {
     fn from(address: Address) -> usize {
         address.0 as usize
+    }
+}
+
+impl Deref for Address {
+    type Target = u16;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

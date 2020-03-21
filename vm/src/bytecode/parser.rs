@@ -2,7 +2,7 @@ use super::address::Address;
 use super::instruction::Instruction;
 use super::opcode::{self, Opcode};
 use crate::slice_to_array;
-use crate::character_class::{self, CharacterClass};
+use crate::grammar::character_class::{self, CharacterClass};
 
 use std::array;
 use std::convert::{From, TryFrom, TryInto};
@@ -134,10 +134,10 @@ pub fn parse_instruction(bytes: &[u8]) -> Result<(Instruction, usize), ParseErro
         Opcode::Nop => Ok((Nop, 1)),
         Opcode::Succeed => Ok((Succeed, 1)),
         Opcode::Fail => Ok((Fail, 1)),
-        Opcode::FailIfLessThan => parse_instruction_byte!(FailIfLessThan, bytes),
         Opcode::ToggleSuccess => Ok((ToggleSuccess, 1)),
-        Opcode::QcZero => Ok((QcZero, 1)),
-        Opcode::QcIncrement => Ok((QcIncrement, 1)),
+        Opcode::QuantifierInit => Ok((QuantifierInit, 1)),
+        Opcode::QuantifierLeast => parse_instruction_byte!(QuantifierLeast, bytes),
+        Opcode::QuantifierExact => parse_instruction_byte!(QuantifierExact, bytes),
         Opcode::Jump => parse_instruction_address!(Jump, bytes),
         Opcode::JumpIfFail => parse_instruction_address!(JumpIfFail, bytes),
         Opcode::JumpIfSuccess => parse_instruction_address!(JumpIfSuccess, bytes),
@@ -177,17 +177,21 @@ mod tests {
         
         test_parse!([Opcode::Fail as u8], Ok((Instruction::Fail, 1)));
         
-        test_parse!([Opcode::FailIfLessThan as u8, 1], Ok((Instruction::FailIfLessThan(1), 2)));
-        test_parse!([Opcode::FailIfLessThan as u8, 255], Ok((Instruction::FailIfLessThan(255), 2)));
-        test_parse!([Opcode::FailIfLessThan as u8, 255, 0], Ok((Instruction::FailIfLessThan(255), 2)));
-        test_parse!([Opcode::FailIfLessThan as u8], Err(ParseError::MissingArgument));
 
         test_parse!([Opcode::ToggleSuccess as u8], Ok((Instruction::ToggleSuccess, 1)));
         
-        test_parse!([Opcode::QcZero as u8], Ok((Instruction::QcZero, 1)));
-        
-        test_parse!([Opcode::QcIncrement as u8], Ok((Instruction::QcIncrement, 1)));
+        test_parse!([Opcode::QuantifierInit as u8], Ok((Instruction::QuantifierInit, 1)));
 
+        test_parse!([Opcode::QuantifierLeast as u8, 1], Ok((Instruction::QuantifierLeast(1), 2)));
+        test_parse!([Opcode::QuantifierLeast as u8, 255], Ok((Instruction::QuantifierLeast(255), 2)));
+        test_parse!([Opcode::QuantifierLeast as u8, 255, 0], Ok((Instruction::QuantifierLeast(255), 2)));
+        test_parse!([Opcode::QuantifierLeast as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::QuantifierExact as u8, 1], Ok((Instruction::QuantifierExact(1), 2)));
+        test_parse!([Opcode::QuantifierExact as u8, 255], Ok((Instruction::QuantifierExact(255), 2)));
+        test_parse!([Opcode::QuantifierExact as u8, 255, 0], Ok((Instruction::QuantifierExact(255), 2)));
+        test_parse!([Opcode::QuantifierExact as u8], Err(ParseError::MissingArgument));
+        
         test_parse!([Opcode::Jump as u8, 42, 0], Ok((Instruction::Jump(Address::new(42)), 3)));
         test_parse!([Opcode::Jump as u8, 42, 0, 255], Ok((Instruction::Jump(Address::new(42)), 3)));
         test_parse!([Opcode::Jump as u8, 0, 1], Ok((Instruction::Jump(Address::new(256)), 3)));

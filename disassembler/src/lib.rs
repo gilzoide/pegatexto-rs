@@ -16,6 +16,6 @@ pub fn dump_bytecode(bytecode: &[u8]) {
     let mut current = 0;
     while let Some(instruction) = iter.next() {
         println!("{:width$} | {}", current, instruction, width = address_digits);
-        current = iter.current();
+        current = iter.current().into();
     }
 }
