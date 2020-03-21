@@ -1,0 +1,57 @@
+Grammar <- Rule+
+
+Rule <- '.' Identifier EOL CommandOrLabel+
+CommandOrLabel <- (Command / Label)+
+
+Command <- [ \t]* (
+    Nop /
+    Succeed /
+    Fail /
+    ToggleSuccess /
+    QuantifierInit /
+    QuantifierLeast /
+    QuantifierExact /
+    Jump /
+    Call /
+    Return /
+    Push /
+    Peek /
+    Pop /
+    Byte /
+    NotByte /
+    Class /
+    Literal /
+    Set /
+    Range /
+    Action
+) EOL
+Label <- Identifier ':' EOL
+
+Nop <- "nop"
+Succeed <- "succ"
+Fail <- "fail"
+ToggleSuccess <- "togl"
+QuantifierInit <- "qinit"
+QuantifierLeast <- "qleast" IntParam
+QuantifierExact <- "qexact" IntParam
+Jump <- "jmp" [fs]? LabelParam
+Call <- "call" LabelParam
+Return <- "ret"
+Push <- "push"
+Peek <- "peek"
+Pop <- "pop"
+Byte <- "byte" IntParam
+NotByte <- "nbyte" IntParam
+Class <- "cls" CharClassParam
+Literal <- "str" StringParam
+Set <- "set" StringParam
+Range <- "rng" IntParam IntParam
+Action <- "act" LabelParam
+
+Identifier <- \a \w*
+IntParam <- ' '+ \d+
+CharParam <- ' '+ '\'' . '\''
+CharClassParam <- ' '+ [wWaAcCdDgGlLpPsSuUxX]
+StringParam <- ' '+ '"' [^"] '"'
+LabelParam <- ' '+ Identifier
+EOL <- [ \t]* '\n'
