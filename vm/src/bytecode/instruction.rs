@@ -11,10 +11,10 @@ pub enum Instruction<'a> {
     Nop,
     Succeed,
     Fail,
+    FailIfLessThan(u8),
     ToggleSuccess,
     QuantifierInit,
-    QuantifierLeast(u8),
-    QuantifierExact(u8),
+    QuantifierNext,
     Jump(Address),
     JumpIfFail(Address),
     JumpIfSuccess(Address),
@@ -40,10 +40,10 @@ impl Instruction<'_> {
             Nop => Opcode::Nop,
             Succeed => Opcode::Succeed,
             Fail => Opcode::Fail,
+            FailIfLessThan(_) => Opcode::FailIfLessThan,
             ToggleSuccess => Opcode::ToggleSuccess,
             QuantifierInit => Opcode::QuantifierInit,
-            QuantifierLeast(_) => Opcode::QuantifierLeast,
-            QuantifierExact(_) => Opcode::QuantifierExact,
+            QuantifierNext => Opcode::QuantifierNext,
             Jump(_) => Opcode::Jump,
             JumpIfFail(_) => Opcode::JumpIfFail,
             JumpIfSuccess(_) => Opcode::JumpIfSuccess,
@@ -69,7 +69,7 @@ impl fmt::Display for Instruction<'_> {
         use Instruction::*;
         let res = write!(f, "{}", self.opcode());
         match *self {
-            QuantifierLeast(n) | QuantifierExact(n) => write!(f, " {}", n),
+            FailIfLessThan(n) => write!(f, " {}", n),
             Jump(address) | JumpIfFail(address) | JumpIfSuccess(address) | Call(address) => {
                 write!(f, " {}", address)
             },

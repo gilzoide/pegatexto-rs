@@ -14,13 +14,18 @@ impl Builder {
         Bytecode::from_bytes_unchecked(self.0)
     }
 
+    pub fn current_address(&self) -> Address {
+        let len = self.0.len();
+        Address::new(len as u16)
+    }
+
     pub fn push_instruction(&mut self, instruction: &Instruction) -> usize {
         let len = self.0.len();
         let opcode = instruction.opcode();
         self.push_byte(opcode as u8);
         use Instruction::*;
         match instruction {
-            QuantifierLeast(n) | QuantifierExact(n) => self.push_byte(*n),
+            FailIfLessThan(n) => self.push_byte(*n),
             Jump(addr) | JumpIfFail(addr) | JumpIfSuccess(addr) | Call(addr) => {
                 self.push_address(*addr);
             },

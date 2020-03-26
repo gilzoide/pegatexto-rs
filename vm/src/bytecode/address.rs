@@ -11,6 +11,10 @@ impl Address {
         Address(address)
     }
 
+    pub fn zero() -> Address {
+        Address::new(0)
+    }
+
     pub fn max_value() -> Address {
         Address::new(u16::max_value())
     }

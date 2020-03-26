@@ -2,6 +2,7 @@ use crate::bytecode::Bytecode;
 use crate::bytecode::address::Address;
 use crate::bytecode::instruction::{Instruction, InstructionIterator};
 
+#[derive(Debug)]
 pub enum MatchError {
     NoMatch,
     UnmatchedPop,
@@ -53,40 +54,21 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
             Instruction::Fail => {
                 success_flag = false;
             },
+            Instruction::FailIfLessThan(n) => {
+                success_flag = state.qc >= n as i32;
+            },
             Instruction::ToggleSuccess => {
                 success_flag = !success_flag;
             },
             Instruction::QuantifierInit => {
-                state.ip = iter.current() + 1;
                 state_stack.push(state);
+                state.ip = iter.current();
                 state.qc = 0;
             },
-            Instruction::QuantifierLeast(n) => {
+            Instruction::QuantifierNext => {
                 if success_flag {
                     state.qc += 1;
                     iter.jump(state.ip);
-                }
-                else {
-                    success_flag = state.qc >= n as i32;
-                    if !success_flag {
-                        state = peek(&state_stack)?;
-                    }
-                    pop(&mut state_stack)?;
-                }
-            },
-            Instruction::QuantifierExact(n) => {
-                if success_flag {
-                    state.qc += 1;
-                    if state.qc < n as i32 {
-                        iter.jump(state.ip);
-                    }
-                    else {
-                        pop(&mut state_stack)?;
-                    }
-                }
-                else {
-                    state = peek(&state_stack)?;
-                    pop(&mut state_stack)?;
                 }
             },
             Instruction::Jump(addr) => {
@@ -103,7 +85,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 }
             },
             Instruction::Call(_) => {
-                state.ip = iter.current() + 1;
+                state.ip = iter.current();
                 // TODO
             },
             Instruction::Return => {
