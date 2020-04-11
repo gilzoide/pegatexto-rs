@@ -1,6 +1,6 @@
 use super::Bytecode;
 use super::address::Address;
-use super::instruction::*;
+use super::instruction::Instruction;
 
 #[derive(Clone)]
 pub struct Builder(Vec<u8>);
@@ -48,6 +48,10 @@ impl Builder {
         let bytes: [u8; 2] = address.into();
         self.0[jump_op + 1] = bytes[0];
         self.0[jump_op + 2] = bytes[1];
+    }
+
+    pub fn clear(&mut self) {
+        self.0.clear()
     }
 
     fn push_byte(&mut self, byte: u8) {

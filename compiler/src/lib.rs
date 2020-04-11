@@ -1,24 +1,72 @@
 use pegatexto_vm::bytecode::Bytecode;
 use pegatexto_vm::bytecode::address::Address;
-use pegatexto_vm::bytecode::builder::Builder;
+use pegatexto_vm::bytecode::builder::Builder as BytecodeBuilder;
 use pegatexto_vm::bytecode::instruction::Instruction;
-use pegatexto_vm::grammar::Grammar;
 use pegatexto_vm::grammar::expression::Expression;
 
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::vec::Vec;
+
+struct RuleCompileInfo {
+    index: Option<i32>,
+    call_addresses: Vec<usize>,
+    address: Address,
+}
+impl RuleCompileInfo {
+    fn new() -> RuleCompileInfo {
+        RuleCompileInfo {
+            index: None,
+            call_addresses: Vec::new(),
+            address: Address::zero(),
+        }
+    }
+}
+
 pub struct Compiler {
-    builder: Builder,
+    builder: BytecodeBuilder,
+    rulemap: HashMap<String, RuleCompileInfo>,
+}
+
+#[derive(Debug)]
+pub enum CompileError {
+    EmptyGrammar,
 }
 
 impl Compiler {
     pub fn new() -> Compiler {
-        Compiler { builder: Builder::new() }
+        Compiler { builder: BytecodeBuilder::new(), rulemap: HashMap::new() }
     }
 
     pub fn emit(self) -> Bytecode {
         self.builder.build()
     }
 
-    pub fn compile_grammar(&mut self, grammar: &Grammar) {
+    pub fn compile_grammar(&mut self, grammar: &[(&str, Expression)]) -> Result<(), CompileError> {
+        if grammar.len() == 0 {
+            return Err(CompileError::EmptyGrammar)
+        }
+        for (i, (name, expr)) in grammar.iter().enumerate() {
+            let current_address = self.builder.current_address();
+            let mut rule_info = self.rule_info(name);
+            rule_info.index = Some(i as i32);
+            rule_info.address = current_address;
+            self.compile_expr(expr);
+            self.builder.push_instruction(&Instruction::Return);
+        }
+        for (name, _expr) in grammar.iter() {
+            let rule_info = &self.rulemap[*name];
+            let rule_address = rule_info.address;
+            let iter = rule_info.call_addresses.iter();
+            for call_addr in iter {
+                self.builder.patch_jump(*call_addr, rule_address);
+            }
+        }
+        Ok(())
+    }
+
+    fn rule_info(&mut self, name: &str) -> &mut RuleCompileInfo {
+        self.rulemap.entry(name.to_string()).or_insert_with(RuleCompileInfo::new)
     }
 
     pub fn compile_expr(&mut self, expr: &Expression) {
@@ -45,6 +93,8 @@ impl Compiler {
                 self.builder.push_instruction(&Instruction::NotByte(b'\0'));
             },
             Expression::NonTerminal(s) => {
+                let addr = self.builder.push_instruction(&Instruction::Call(Address::zero()));
+                self.rule_info(s).call_addresses.push(addr);
             },
             Expression::Quantifier(e, n) => {
                 match n {
@@ -75,6 +125,18 @@ impl Compiler {
                 self.builder.push_instruction(&Instruction::Pop);
             },
             Expression::Not(e) => {
+                match **e {
+                    Expression::Char(c) => {
+                        self.builder.push_instruction(&Instruction::NotByte(c as u8));
+                    },
+                    _ => {
+                        self.builder.push_instruction(&Instruction::Push);
+                        self.compile_expr(e);
+                        self.builder.push_instruction(&Instruction::ToggleSuccess);
+                        self.builder.push_instruction(&Instruction::Peek);
+                        self.builder.push_instruction(&Instruction::Pop);
+                    }
+                }
             },
             Expression::Sequence(es) => {
                 let n = es.len();

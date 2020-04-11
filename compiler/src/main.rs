@@ -5,24 +5,22 @@ use pegatexto_vm::grammar::character_class::CharacterClass;
 use pegatexto_vm::grammar::expression::Expression;
 use pegatexto_vm::matcher::try_match;
 
-fn test_expression() -> Expression<'static> {
+fn test_grammar() -> [(&'static str, Expression); 2] {
     use Expression::*;
 
-    Sequence(vec![
-        Literal("hello"),
-        Quantifier(Box::new(Class(CharacterClass::Whitespace)), 1),
-        Literal("world"),
-    ])
+    [
+        ("axiom", Literal("hello".to_string()) + NonTerminal("s".to_string()) + Literal("world".to_string())),
+        ("s", Class(CharacterClass::Whitespace)^1),
+    ]
 }
 
 fn main() {
-    let expr = test_expression();
     let mut compiler = Compiler::new();
 
-    compiler.compile_expr(&expr);
+    compiler.compile_grammar(&test_grammar()).unwrap();
     let bytecode = compiler.emit();
     dump_bytecode(&bytecode);
 
-    let result = try_match(&bytecode, "hello\nworld, mfriend");
+    let result = try_match(&bytecode, "hello     world");
     println!("{:?}", result);
 }

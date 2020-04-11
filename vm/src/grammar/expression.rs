@@ -2,23 +2,23 @@ use super::character_class::CharacterClass;
 
 use std::ops::{Add, BitXor, Div, Neg, Not};
 
-pub enum Expression<'a> {
+pub enum Expression {
     Char(char),
-    Literal(&'a str),
+    Literal(String),
     Class(CharacterClass),
-    Set(&'a str),
+    Set(String),
     Range(char, char),
     Any,
-    NonTerminal(&'a str),
-    Quantifier(Box<Expression<'a>>, i32),
-    And(Box<Expression<'a>>),
-    Not(Box<Expression<'a>>),
-    Sequence(Vec<Expression<'a>>),
-    Choice(Vec<Expression<'a>>),
+    NonTerminal(String),
+    Quantifier(Box<Expression>, i32),
+    And(Box<Expression>),
+    Not(Box<Expression>),
+    Sequence(Vec<Expression>),
+    Choice(Vec<Expression>),
     //Error(i32, Expression),
 }
 
-impl<'a> Add for Expression<'a> {
+impl Add for Expression {
     type Output = Self;
 
     fn add(self, other: Self) -> Self::Output {
@@ -32,7 +32,7 @@ impl<'a> Add for Expression<'a> {
     }
 }
 
-impl<'a> BitXor<i32> for Expression<'a> {
+impl BitXor<i32> for Expression {
     type Output = Self;
 
     fn bitxor(self, other: i32) -> Self::Output {
@@ -40,7 +40,7 @@ impl<'a> BitXor<i32> for Expression<'a> {
     }
 }
 
-impl<'a> Div for Expression<'a> {
+impl Div for Expression {
     type Output = Self;
 
     fn div(self, other: Self) -> Self::Output {
@@ -54,7 +54,7 @@ impl<'a> Div for Expression<'a> {
     }
 }
 
-impl<'a> Neg for Expression<'a> {
+impl Neg for Expression {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -65,7 +65,7 @@ impl<'a> Neg for Expression<'a> {
     }
 }
 
-impl<'a> Not for Expression<'a> {
+impl Not for Expression {
     type Output = Self;
 
     fn not(self) -> Self::Output {
