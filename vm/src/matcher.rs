@@ -8,7 +8,7 @@ pub enum MatchError {
     UnmatchedPop,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct MatchState {
     sp: usize,
     qc: i32,
@@ -20,7 +20,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
     let mut success_flag = true;
 
     let mut state = MatchState { sp: 0, qc: 0, ac: 0, ip: Address::new(0) };
-    let mut state_stack = vec![state];
+    let mut state_stack = Vec::new();
 
     fn get_next_byte(text_slice: &str) -> Option<u8> {
         text_slice.as_bytes().get(0).copied()
@@ -28,23 +28,38 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
     fn get_next_char(text_slice: &str) -> Option<char> {
         text_slice.chars().next()
     }
+    fn push(state_stack: &mut Vec<MatchState>, mut state: MatchState, ip: Address) -> MatchState {
+        state.ip = ip;
+        println!(">> Push {:?}", state);
+        state_stack.push(state);
+        state
+    }
     fn peek(state_stack: &Vec<MatchState>) -> Result<MatchState, MatchError> {
         match state_stack.last() {
             Some(state) => Ok(*state),
             None => Err(MatchError::UnmatchedPop),
         }
     }
-    fn pop(state_stack: &mut Vec<MatchState>) -> Result<(), MatchError> {
-        if state_stack.pop().is_none() {
-            Err(MatchError::UnmatchedPop)
+    fn pop(state_stack: &mut Vec<MatchState>) -> Result<MatchState, MatchError> {
+        match state_stack.pop() {
+            Some(s) => {
+                println!("<< Pop {:?}", s); 
+                Ok(s)
+            },
+            None => {
+                println!("<< Pop empty");
+                Err(MatchError::UnmatchedPop)
+            },
         }
-        else { 
-            Ok(())
-        }
+    }
+    fn jump(iter: &mut InstructionIterator, addr: Address) {
+        println!("== Jump {:?}", addr);
+        iter.jump(addr);
     }
 
     let mut iter = InstructionIterator::new(&bytecode);
     while let Some(instruction) = iter.next() {
+        println!("{:?}", instruction);
         let text_slice = &text[state.sp..];
         match instruction {
             Instruction::Nop => (),
@@ -61,41 +76,43 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 success_flag = !success_flag;
             },
             Instruction::QuantifierInit => {
-                state_stack.push(state);
-                state.ip = iter.current();
+                state = push(&mut state_stack, state, iter.current());
                 state.qc = 0;
             },
             Instruction::QuantifierNext => {
                 if success_flag {
                     state.qc += 1;
-                    iter.jump(state.ip);
+                    jump(&mut iter, state.ip);
                 }
             },
             Instruction::Jump(addr) => {
-                iter.jump(addr);
+                jump(&mut iter, addr);
             },
             Instruction::JumpIfFail(addr) => {
                 if !success_flag {
-                    iter.jump(addr);
+                    jump(&mut iter, addr);
                 }
             },
             Instruction::JumpIfSuccess(addr) => {
                 if success_flag {
-                    iter.jump(addr);
+                    jump(&mut iter, addr);
                 }
             },
-            Instruction::Call(_) => {
-                state.ip = iter.current();
-                // TODO
+            Instruction::Call(addr) => {
+                state = push(&mut state_stack, state, iter.current());
+                jump(&mut iter, addr);
             },
             Instruction::Return => {
-                // TODO
+                match pop(&mut state_stack) {
+                    Ok(s) => jump(&mut iter, s.ip),
+                    Err(_) => break,
+                }
             },
             Instruction::Push => {
-                state_stack.push(state);
+                state = push(&mut state_stack, state, iter.current());
             },
             Instruction::Peek => {
-                state = peek(&mut state_stack)?;
+                state = peek(&state_stack)?;
             },
             Instruction::Pop => {
                 pop(&mut state_stack)?;
