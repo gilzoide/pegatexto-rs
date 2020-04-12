@@ -3,7 +3,7 @@ use std::convert::From;
 use std::fmt;
 use std::ops::{Add, Sub, AddAssign, SubAssign, Deref};
 
-#[derive(Clone, Copy, Debug, Eq, Ord)]
+#[derive(Clone, Copy, Debug, Default, Eq, Ord)]
 pub struct Address(u16);
 
 impl Address {
