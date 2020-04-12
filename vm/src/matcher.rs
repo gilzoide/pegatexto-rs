@@ -63,7 +63,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
         let text_slice = &text[state.sp..];
         match instruction {
             Instruction::Any => {
-                success_flag = get_next_byte(text_slice).is_some();
+                success_flag = get_next_char(text_slice).is_some();
                 if success_flag {
                     state.sp += 1;
                 }
