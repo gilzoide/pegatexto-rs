@@ -59,10 +59,15 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
 
     let mut iter = InstructionIterator::new(&bytecode);
     while let Some(instruction) = iter.next() {
-        println!("{:?}", instruction);
+        println!("{}", instruction);
         let text_slice = &text[state.sp..];
         match instruction {
-            Instruction::Nop => (),
+            Instruction::Any => {
+                success_flag = get_next_byte(text_slice).is_some();
+                if success_flag {
+                    state.sp += 1;
+                }
+            },
             Instruction::Succeed => {
                 success_flag = true;
             },

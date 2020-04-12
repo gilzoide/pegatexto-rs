@@ -90,7 +90,7 @@ impl Compiler {
                 self.builder.push_instruction(&Instruction::Range(b_min, b_max));
             },
             Expression::Any => {
-                self.builder.push_instruction(&Instruction::NotByte(b'\0'));
+                self.builder.push_instruction(&Instruction::Any);
             },
             Expression::NonTerminal(s) => {
                 let addr = self.builder.push_instruction(&Instruction::Call(Address::zero()));

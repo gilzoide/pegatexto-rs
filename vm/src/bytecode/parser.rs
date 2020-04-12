@@ -131,7 +131,7 @@ pub fn parse_instruction(bytes: &[u8]) -> Result<(Instruction, usize), ParseErro
     };
     let bytes = &bytes[1..];
     match opcode {
-        Opcode::Nop => Ok((Nop, 1)),
+        Opcode::Any => Ok((Any, 1)),
         Opcode::Succeed => Ok((Succeed, 1)),
         Opcode::Fail => Ok((Fail, 1)),
         Opcode::FailIfLessThan => parse_instruction_byte!(FailIfLessThan, bytes),
@@ -170,8 +170,8 @@ mod tests {
 
     #[test]
     fn test_instruction_parser() {
-        test_parse!([Opcode::Nop as u8], Ok((Instruction::Nop, 1)));
-        test_parse!([Opcode::Nop as u8, 1, 2, 3], Ok((Instruction::Nop, 1)));
+        test_parse!([Opcode::Any as u8], Ok((Instruction::Any, 1)));
+        test_parse!([Opcode::Any as u8, 1, 2, 3], Ok((Instruction::Any, 1)));
         
         test_parse!([Opcode::Succeed as u8], Ok((Instruction::Succeed, 1)));
         

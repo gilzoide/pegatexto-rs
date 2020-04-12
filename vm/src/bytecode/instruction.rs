@@ -8,7 +8,7 @@ use std::iter::Iterator;
 
 #[derive(Debug, PartialEq)]
 pub enum Instruction<'a> {
-    Nop,
+    Any,
     Succeed,
     Fail,
     FailIfLessThan(u8),
@@ -37,7 +37,7 @@ impl Instruction<'_> {
     pub fn opcode(&self) -> Opcode {
         use Instruction::*;
         match *self {
-            Nop => Opcode::Nop,
+            Any => Opcode::Any,
             Succeed => Opcode::Succeed,
             Fail => Opcode::Fail,
             FailIfLessThan(_) => Opcode::FailIfLessThan,

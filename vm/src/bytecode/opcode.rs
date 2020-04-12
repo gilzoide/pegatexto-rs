@@ -3,7 +3,7 @@ use std::fmt;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Opcode {
-    Nop,
+    Any,
     Succeed,
     Fail,
     FailIfLessThan,
@@ -29,7 +29,7 @@ pub enum Opcode {
 }
 
 const OPCODE_TABLE: [Opcode; 23] = [
-    Opcode::Nop,
+    Opcode::Any,
     Opcode::Succeed,
     Opcode::Fail,
     Opcode::FailIfLessThan,
@@ -55,7 +55,7 @@ const OPCODE_TABLE: [Opcode; 23] = [
 ];
 
 const OPCODE_ASSEMBLY_TABLE: [&str; 23] = [
-    "nop",
+    "any",
     "succ",
     "fail",
     "flt",
