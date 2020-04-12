@@ -188,6 +188,10 @@ impl Compiler {
                     }
                 }
             },
+            Expression::Capture(e, _name) => {
+                self.compile_expr(e);
+                self.builder.push_instruction(&Instruction::Capture(0));
+            },
         }
     }
 }

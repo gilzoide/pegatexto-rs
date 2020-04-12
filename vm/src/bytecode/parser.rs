@@ -153,7 +153,7 @@ pub fn parse_instruction(bytes: &[u8]) -> Result<(Instruction, usize), ParseErro
         Opcode::Set => parse_instruction_string!(Set, bytes),
         Opcode::NotSet => parse_instruction_string!(NotSet, bytes),
         Opcode::Range => parse_instruction_range!(Range, bytes),
-        Opcode::Action => Ok((Action, 1)),
+        Opcode::Capture => parse_instruction_byte!(Capture, bytes),
         Opcode::Halt => Ok((Halt(None), 1)),
     }
 }
@@ -270,7 +270,10 @@ mod tests {
         test_parse!([Opcode::Range as u8, b'9'], Err(ParseError::MissingArgument));
         test_parse!([Opcode::Range as u8], Err(ParseError::MissingArgument));
 
-        test_parse!([Opcode::Action as u8], Ok((Instruction::Action, 1)));
+        test_parse!([Opcode::Capture as u8, 0], Ok((Instruction::Capture(0), 2)));
+        test_parse!([Opcode::Capture as u8, 255], Ok((Instruction::Capture(255), 2)));
+        test_parse!([Opcode::Capture as u8, 255, 0], Ok((Instruction::Capture(255), 2)));
+        test_parse!([Opcode::Capture as u8], Err(ParseError::MissingArgument));
 
         test_parse!([Opcode::Halt as u8], Ok((Instruction::Halt(None), 1)));
 

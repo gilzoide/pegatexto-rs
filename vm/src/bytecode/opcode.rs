@@ -25,7 +25,7 @@ pub enum Opcode {
     Set,
     NotSet,
     Range,
-    Action,
+    Capture,
     Halt,
 }
 
@@ -52,7 +52,7 @@ const OPCODE_TABLE: [Opcode; 24] = [
     Opcode::Set,
     Opcode::NotSet,
     Opcode::Range,
-    Opcode::Action,
+    Opcode::Capture,
     Opcode::Halt,
 ];
 
@@ -79,7 +79,7 @@ const OPCODE_ASSEMBLY_TABLE: [&str; 24] = [
     "set",
     "nset",
     "rng",
-    "act",
+    "cap",
     "halt",
 ];
 

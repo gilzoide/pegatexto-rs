@@ -15,8 +15,8 @@ fn test_grammar() -> [(&'static str, Expression); 4] {
 	 */
     [
         ("CSV", NonTerminal("Line".to_string())^0),
-        ("Line", NonTerminal("Field".to_string()) + ((Char(',') + NonTerminal("Field".to_string()))^0) + (NonTerminal("EOL".to_string()) / !Any)),
-        ("Field", InverseSet("\n,".to_string())^1),
+        ("Line", (NonTerminal("Field".to_string()) + ((Char(',') + NonTerminal("Field".to_string()))^0) + (NonTerminal("EOL".to_string()) / !Any)) >> "line"),
+        ("Field", (InverseSet("\n,".to_string())^1) >> "field"),
         ("EOL", (Char('\r')^(-1)) + Char('\n')),
     ]
 }

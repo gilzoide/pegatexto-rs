@@ -16,11 +16,21 @@ struct MatchState {
     ip: Address,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct MatchCapture {
+    start: usize,
+    end: usize,
+    argc: i32,
+    id: u8,
+}
+
 pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
     let mut success_flag = true;
 
     let mut state = MatchState { sp: 0, qc: 0, ac: 0, ip: Address::new(0) };
     let mut state_stack = Vec::new();
+
+    let mut capture_stack = Vec::new();
 
     fn get_next_byte(text_slice: &str) -> Option<u8> {
         text_slice.as_bytes().get(0).copied()
@@ -28,8 +38,9 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
     fn get_next_char(text_slice: &str) -> Option<char> {
         text_slice.chars().next()
     }
-    fn push(state_stack: &mut Vec<MatchState>, mut state: MatchState, ip: Address) -> MatchState {
+    fn push(state_stack: &mut Vec<MatchState>, mut state: MatchState, ac: usize, ip: Address) -> MatchState {
         state.ip = ip;
+        state.ac = ac as i32;
         println!(">> Push {:?}", state);
         state_stack.push(state);
         state
@@ -59,7 +70,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
 
     let mut iter = InstructionIterator::new(&bytecode);
     while let Some(instruction) = iter.next() {
-        println!("{}", instruction);
+        println!("  {}", instruction);
         let text_slice = &text[state.sp..];
         match instruction {
             Instruction::Any => {
@@ -81,7 +92,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 success_flag = !success_flag;
             },
             Instruction::QuantifierInit => {
-                state = push(&mut state_stack, state, iter.current());
+                state = push(&mut state_stack, state, capture_stack.len(), iter.current());
                 state.qc = 0;
             },
             Instruction::QuantifierNext => {
@@ -104,7 +115,7 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 }
             },
             Instruction::Call(addr) => {
-                state = push(&mut state_stack, state, iter.current());
+                state = push(&mut state_stack, state, capture_stack.len(), iter.current());
                 jump(&mut iter, addr);
             },
             Instruction::Return => {
@@ -114,10 +125,11 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 }
             },
             Instruction::Push => {
-                state = push(&mut state_stack, state, iter.current());
+                state = push(&mut state_stack, state, capture_stack.len(), iter.current());
             },
             Instruction::Peek => {
                 state = peek(&state_stack)?;
+                capture_stack.resize_with(state.ac as usize, Default::default);
             },
             Instruction::Pop => {
                 pop(&mut state_stack)?;
@@ -187,14 +199,23 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                     state.sp += 1;
                 }
             },
-            Instruction::Action => {
-                // TODO
+            Instruction::Capture(i) => {
+                let previous_state = peek(&state_stack)?;
+                let capture = MatchCapture {
+                    start: previous_state.sp,
+                    end: state.sp,
+                    argc: state.ac - previous_state.ac,
+                    id: i,
+                };
+                capture_stack.push(capture);
+                println!("== Capture {:?} (ac: {})", &text[capture.start..capture.end], capture.argc);
             },
             Instruction::Halt(_opt_err) => break,
         }
     }
 
     if success_flag {
+        println!("MATCHED {:?}", capture_stack);
         Ok(state.sp)
     }
     else {

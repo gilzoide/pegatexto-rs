@@ -1,6 +1,6 @@
 use super::character_class::CharacterClass;
 
-use std::ops::{Add, BitXor, Div, Neg, Not};
+use std::ops::{Add, BitXor, Div, Neg, Not, Shr};
 
 pub enum Expression {
     Char(char),
@@ -16,6 +16,7 @@ pub enum Expression {
     Not(Box<Expression>),
     Sequence(Vec<Expression>),
     Choice(Vec<Expression>),
+    Capture(Box<Expression>, String),
     //Error(i32, Expression),
 }
 
@@ -76,3 +77,12 @@ impl Not for Expression {
         }
     }
 }
+
+impl Shr<&str> for Expression {
+    type Output = Self;
+
+    fn shr(self, name: &str) -> Self::Output {
+        Expression::Capture(Box::new(self), name.to_string())
+    }
+}
+

@@ -30,7 +30,7 @@ pub enum Instruction<'a> {
     Set(&'a str),
     NotSet(&'a str),
     Range(u8, u8),
-    Action,
+    Capture(u8),
     Halt(Option<ParseError>),
 }
 
@@ -60,7 +60,7 @@ impl Instruction<'_> {
             Set(_) => Opcode::Set,
             NotSet(_) => Opcode::NotSet,
             Range(_, _) => Opcode::Range,
-            Action => Opcode::Action,
+            Capture(_) => Opcode::Capture,
             Halt(_) => Opcode::Halt,
         }
     }
@@ -71,7 +71,7 @@ impl fmt::Display for Instruction<'_> {
         use Instruction::*;
         let res = write!(f, "{}", self.opcode());
         match *self {
-            FailIfLessThan(n) => write!(f, " {}", n),
+            FailIfLessThan(n) | Capture(n) => write!(f, " {}", n),
             Jump(address) | JumpIfFail(address) | JumpIfSuccess(address) | Call(address) => {
                 write!(f, " {}", address)
             },
