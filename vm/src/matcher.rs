@@ -2,7 +2,7 @@ use crate::bytecode::Bytecode;
 use crate::bytecode::address::Address;
 use crate::bytecode::instruction::{Instruction, InstructionIterator};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum MatchError {
     NoMatch,
     UnmatchedPop,
@@ -196,9 +196,23 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use Instruction::*;
+    use crate::bytecode::OwnedBytecode;
+    use crate::bytecode::builder::Builder;
+    use crate::matcher::MatchError::*;
+
+    macro_rules! test_match {
+        ($bytecode:expr, $str:expr, $result:expr) => {
+            assert_eq!(try_match($bytecode, $str), $result)
+        }
+    }
 
     #[test]
-    fn test_match() {
-
+    fn test_match_any() {
+        let any = OwnedBytecode::from_instructions(&[Any]);
+        let any = any.as_bytecode();
+        test_match!(&any, ".", Ok(1));
+        test_match!(&any, "\u{0}", Ok(1));
+        test_match!(&any, "", Err(NoMatch));
     }
 }

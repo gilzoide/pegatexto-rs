@@ -1,4 +1,4 @@
-use super::Bytecode;
+use super::{Bytecode, OwnedBytecode};
 use super::address::Address;
 use super::instruction::Instruction;
 
@@ -10,8 +10,20 @@ impl Builder {
         Builder(Vec::new())
     }
 
-    pub fn build(self) -> Bytecode {
-        Bytecode::from_bytes_unchecked(self.0)
+    pub fn with_instructions(instructions: &[Instruction]) -> Builder {
+        let mut builder = Builder::new();
+        for i in instructions.iter() {
+            builder.push_instruction(i);
+        }
+        builder
+    }
+
+    pub fn build(&self) -> Bytecode {
+        Bytecode::from_bytes_unchecked(&self.0)
+    }
+
+    pub fn build_owned(self) -> OwnedBytecode {
+        OwnedBytecode::from_bytes_unchecked(self.0)
     }
 
     pub fn current_address(&self) -> Address {
@@ -19,8 +31,7 @@ impl Builder {
         Address::new(len as u16)
     }
 
-    pub fn push_instruction(&mut self, instruction: &Instruction) -> usize {
-        let len = self.0.len();
+    pub fn push_instruction(&mut self, instruction: &Instruction) -> &mut Self {
         let opcode = instruction.opcode();
         self.push_byte(opcode as u8);
         use Instruction::*;
@@ -41,13 +52,15 @@ impl Builder {
             }
             _ => ()
         };
-        len
+        self
     }
 
-    pub fn patch_jump(&mut self, jump_op: usize, address: Address) {
+    pub fn patch_jump(&mut self, jump_op: Address, address: Address) -> &mut Self {
         let bytes: [u8; 2] = address.into();
+        let jump_op: usize = jump_op.into();
         self.0[jump_op + 1] = bytes[0];
         self.0[jump_op + 2] = bytes[1];
+        self
     }
 
     pub fn clear(&mut self) {

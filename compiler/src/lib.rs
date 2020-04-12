@@ -1,4 +1,4 @@
-use pegatexto_vm::bytecode::Bytecode;
+use pegatexto_vm::bytecode::{Bytecode, OwnedBytecode};
 use pegatexto_vm::bytecode::address::Address;
 use pegatexto_vm::bytecode::builder::Builder as BytecodeBuilder;
 use pegatexto_vm::bytecode::instruction::Instruction;
@@ -10,7 +10,7 @@ use std::vec::Vec;
 
 struct RuleCompileInfo {
     index: Option<i32>,
-    call_addresses: Vec<usize>,
+    call_addresses: Vec<Address>,
     address: Address,
 }
 impl RuleCompileInfo {
@@ -38,8 +38,12 @@ impl Compiler {
         Compiler { builder: BytecodeBuilder::new(), rulemap: HashMap::new() }
     }
 
-    pub fn emit(self) -> Bytecode {
+    pub fn emit(&self) -> Bytecode {
         self.builder.build()
+    }
+
+    pub fn emit_owned(self) -> OwnedBytecode {
+        self.builder.build_owned()
     }
 
     pub fn compile_grammar(&mut self, grammar: &[(&str, Expression)]) -> Result<(), CompileError> {
@@ -93,7 +97,8 @@ impl Compiler {
                 self.builder.push_instruction(&Instruction::Any);
             },
             Expression::NonTerminal(s) => {
-                let addr = self.builder.push_instruction(&Instruction::Call(Address::zero()));
+                let addr = self.builder.current_address();
+                self.builder.push_instruction(&Instruction::Call(Address::zero()));
                 self.rule_info(s).call_addresses.push(addr);
             },
             Expression::Quantifier(e, n) => {
@@ -148,11 +153,13 @@ impl Compiler {
                         self.compile_expr(&es[0]);
                         let mut jump_fail_patches = Vec::with_capacity(n - 1);
                         for e in es[1..].iter() {
-                            let addr = self.builder.push_instruction(&Instruction::JumpIfFail(Address::zero()));
+                            let addr = self.builder.current_address();
+                            self.builder.push_instruction(&Instruction::JumpIfFail(Address::zero()));
                             jump_fail_patches.push(addr);
                             self.compile_expr(e);
                         }
-                        let jump_success_patch = self.builder.push_instruction(&Instruction::JumpIfSuccess(Address::zero()));
+                        let jump_success_patch = self.builder.current_address();
+                        self.builder.push_instruction(&Instruction::JumpIfSuccess(Address::zero()));
                         let fail_address = self.builder.current_address();
                         for patch_addr in jump_fail_patches.iter() {
                             self.builder.patch_jump(*patch_addr, fail_address);
@@ -173,7 +180,8 @@ impl Compiler {
                         let mut jump_success_patches = Vec::with_capacity(n - 1);
                         self.compile_expr(&es[0]);
                         for e in es[1..].iter() {
-                            let addr = self.builder.push_instruction(&Instruction::JumpIfSuccess(Address::zero()));
+                            let addr = self.builder.current_address();
+                            self.builder.push_instruction(&Instruction::JumpIfSuccess(Address::zero()));
                             jump_success_patches.push(addr);
                             self.compile_expr(e);
                         }
