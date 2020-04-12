@@ -151,6 +151,7 @@ pub fn parse_instruction(bytes: &[u8]) -> Result<(Instruction, usize), ParseErro
         Opcode::Class => parse_instruction_character_class!(Class, bytes),
         Opcode::Literal => parse_instruction_string!(Literal, bytes),
         Opcode::Set => parse_instruction_string!(Set, bytes),
+        Opcode::NotSet => parse_instruction_string!(NotSet, bytes),
         Opcode::Range => parse_instruction_range!(Range, bytes),
         Opcode::Action => Ok((Action, 1)),
         Opcode::Halt => Ok((Halt(None), 1)),
@@ -255,6 +256,12 @@ mod tests {
         test_parse!([Opcode::Set as u8, 159, 146, 150, 0], Err(ParseError::InvalidUtf8String));
         test_parse!([Opcode::Set as u8, 0], Err(ParseError::MissingArgument));
         test_parse!([Opcode::Set as u8], Err(ParseError::MissingArgument));
+
+        test_parse!([Opcode::NotSet as u8, b'h', b'e', b'l', b'o', 0], Ok((Instruction::NotSet("helo"), 6)));
+        test_parse!([Opcode::NotSet as u8, b'!', b'n', b'u', b'l'], Err(ParseError::MissingStringTerminator));
+        test_parse!([Opcode::NotSet as u8, 159, 146, 150, 0], Err(ParseError::InvalidUtf8String));
+        test_parse!([Opcode::NotSet as u8, 0], Err(ParseError::MissingArgument));
+        test_parse!([Opcode::NotSet as u8], Err(ParseError::MissingArgument));
 
         test_parse!([Opcode::Range as u8, b'0', b'9'], Ok((Instruction::Range(b'0', b'9'), 3)));
         test_parse!([Opcode::Range as u8, b'0', b'9', 0], Ok((Instruction::Range(b'0', b'9'), 3)));

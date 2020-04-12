@@ -42,7 +42,7 @@ impl Builder {
             },
             Byte(b) | NotByte(b) => self.push_byte(*b),
             Class(c) => self.push_byte(*c as u8),
-            Literal(s) | Set(s) => {
+            Literal(s) | Set(s) | NotSet(s) => {
                 self.push_bytes(s.as_bytes());
                 self.push_byte(0);
             },

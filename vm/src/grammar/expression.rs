@@ -7,6 +7,7 @@ pub enum Expression {
     Literal(String),
     Class(CharacterClass),
     Set(String),
+    InverseSet(String),
     Range(char, char),
     Any,
     NonTerminal(String),

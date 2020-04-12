@@ -169,6 +169,15 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                     state.sp += 1;
                 }
             },
+            Instruction::NotSet(s) => {
+                success_flag = match get_next_char(text_slice) {
+                    Some(next_char) => !s.contains(next_char),
+                    None => false,
+                };
+                if success_flag {
+                    state.sp += 1;
+                }
+            },
             Instruction::Range(b_min, b_max) => {
                 success_flag = match get_next_byte(text_slice) {
                     Some(next_byte) => next_byte >= b_min && next_byte <= b_max,
@@ -214,5 +223,31 @@ mod tests {
         test_match!(&any, ".", Ok(1));
         test_match!(&any, "\u{0}", Ok(1));
         test_match!(&any, "", Err(NoMatch));
+    }
+
+    #[test]
+    fn test_set() {
+        let set = OwnedBytecode::from_instructions(&[Set("1234")]);
+        let set = set.as_bytecode();
+        test_match!(&set, "", Err(NoMatch));
+        test_match!(&set, "0", Err(NoMatch));
+        test_match!(&set, "1", Ok(1));
+        test_match!(&set, "2", Ok(1));
+        test_match!(&set, "3", Ok(1));
+        test_match!(&set, "4", Ok(1));
+        test_match!(&set, "5", Err(NoMatch));
+    }
+
+    #[test]
+    fn test_inverse_set() {
+        let set = OwnedBytecode::from_instructions(&[NotSet("1234")]);
+        let set = set.as_bytecode();
+        test_match!(&set, "", Err(NoMatch));
+        test_match!(&set, "0", Ok(1));
+        test_match!(&set, "1", Err(NoMatch));
+        test_match!(&set, "2", Err(NoMatch));
+        test_match!(&set, "3", Err(NoMatch));
+        test_match!(&set, "4", Err(NoMatch));
+        test_match!(&set, "5", Ok(1));
     }
 }

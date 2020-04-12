@@ -28,6 +28,7 @@ pub enum Instruction<'a> {
     Class(CharacterClass),
     Literal(&'a str),
     Set(&'a str),
+    NotSet(&'a str),
     Range(u8, u8),
     Action,
     Halt(Option<ParseError>),
@@ -57,6 +58,7 @@ impl Instruction<'_> {
             Class(_) => Opcode::Class,
             Literal(_) => Opcode::Literal,
             Set(_) => Opcode::Set,
+            NotSet(_) => Opcode::NotSet,
             Range(_, _) => Opcode::Range,
             Action => Opcode::Action,
             Halt(_) => Opcode::Halt,
@@ -73,9 +75,9 @@ impl fmt::Display for Instruction<'_> {
             Jump(address) | JumpIfFail(address) | JumpIfSuccess(address) | Call(address) => {
                 write!(f, " {}", address)
             },
-            Byte(byte) | NotByte(byte) => write!(f, " '{}'", byte as char),
+            Byte(byte) | NotByte(byte) => write!(f, " {:?}", byte as char),
             Class(character_class) => write!(f, " \\{}", character_class as u8 as char),
-            Literal(string) | Set(string) => write!(f, " {:?}", string),
+            Literal(string) | Set(string) | NotSet(string) => write!(f, " {:?}", string),
             Range(min, max) => write!(f, " [{}-{}]", min as char, max as char),
             //Halt(_) => Opcode::Halt,
             _ => res

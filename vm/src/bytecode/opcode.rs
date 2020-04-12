@@ -23,12 +23,13 @@ pub enum Opcode {
     Class,
     Literal,
     Set,
+    NotSet,
     Range,
     Action,
     Halt,
 }
 
-const OPCODE_TABLE: [Opcode; 23] = [
+const OPCODE_TABLE: [Opcode; 24] = [
     Opcode::Any,
     Opcode::Succeed,
     Opcode::Fail,
@@ -49,12 +50,13 @@ const OPCODE_TABLE: [Opcode; 23] = [
     Opcode::Class,
     Opcode::Literal,
     Opcode::Set,
+    Opcode::NotSet,
     Opcode::Range,
     Opcode::Action,
     Opcode::Halt,
 ];
 
-const OPCODE_ASSEMBLY_TABLE: [&str; 23] = [
+const OPCODE_ASSEMBLY_TABLE: [&str; 24] = [
     "any",
     "succ",
     "fail",
@@ -75,6 +77,7 @@ const OPCODE_ASSEMBLY_TABLE: [&str; 23] = [
     "cls",
     "str",
     "set",
+    "nset",
     "rng",
     "act",
     "halt",

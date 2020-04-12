@@ -88,6 +88,9 @@ impl Compiler {
             Expression::Set(s) => {
                 self.builder.push_instruction(&Instruction::Set(s));
             },
+            Expression::InverseSet(s) => {
+                self.builder.push_instruction(&Instruction::NotSet(s));
+            },
             Expression::Range(min, max) => {
                 let b_min = *min as u8;
                 let b_max = *max as u8;
