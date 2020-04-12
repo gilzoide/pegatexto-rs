@@ -133,18 +133,11 @@ impl Compiler {
                 self.builder.push_instruction(&Instruction::Pop);
             },
             Expression::Not(e) => {
-                match **e {
-                    Expression::Char(c) => {
-                        self.builder.push_instruction(&Instruction::NotByte(c as u8));
-                    },
-                    _ => {
-                        self.builder.push_instruction(&Instruction::Push);
-                        self.compile_expr(e);
-                        self.builder.push_instruction(&Instruction::ToggleSuccess);
-                        self.builder.push_instruction(&Instruction::Peek);
-                        self.builder.push_instruction(&Instruction::Pop);
-                    }
-                }
+                self.builder.push_instruction(&Instruction::Push);
+                self.compile_expr(e);
+                self.builder.push_instruction(&Instruction::ToggleSuccess);
+                self.builder.push_instruction(&Instruction::Peek);
+                self.builder.push_instruction(&Instruction::Pop);
             },
             Expression::Sequence(es) => {
                 let n = es.len();

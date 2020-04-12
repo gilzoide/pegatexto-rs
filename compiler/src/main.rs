@@ -5,12 +5,19 @@ use pegatexto_vm::grammar::character_class::CharacterClass;
 use pegatexto_vm::grammar::expression::Expression;
 use pegatexto_vm::matcher::try_match;
 
-fn test_grammar() -> [(&'static str, Expression); 2] {
+fn test_grammar() -> [(&'static str, Expression); 4] {
     use Expression::*;
 
+	/* CSV <- Line*
+	 * Line <- Field ("," Field)* (EOL / !.)
+	 * Field <- [^\n,]+
+	 * EOL <- \r? \n
+	 */
     [
-        ("axiom", Literal("hello".to_string()) + NonTerminal("s".to_string()) + Literal("world".to_string())),
-        ("s", Class(CharacterClass::Whitespace)^1),
+        ("CSV", NonTerminal("Line".to_string())^0),
+        ("Line", NonTerminal("Field".to_string()) + ((Char(',') + NonTerminal("Field".to_string()))^0) + (NonTerminal("EOL".to_string()) / !Any)),
+        ("Field", InverseSet("\n,".to_string())^1),
+        ("EOL", (Char('\r')^(-1)) + Char('\n')),
     ]
 }
 
@@ -21,6 +28,6 @@ fn main() {
     let bytecode = compiler.emit();
     dump_bytecode(&bytecode);
 
-    let result = try_match(&bytecode, "hello     world");
+    let result = try_match(&bytecode, "oi,cabra\nda,peste");
     println!("{:?}", result);
 }
