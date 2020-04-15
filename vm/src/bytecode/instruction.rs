@@ -24,7 +24,7 @@ pub enum Instruction<'a> {
     Peek,
     Pop,
     Byte(u8),
-    NotByte(u8),
+    Char(char),
     Class(CharacterClass),
     Literal(&'a str),
     Set(&'a str),
@@ -54,7 +54,7 @@ impl Instruction<'_> {
             Peek => Opcode::Peek,
             Pop => Opcode::Pop,
             Byte(_) => Opcode::Byte,
-            NotByte(_) => Opcode::NotByte,
+            Char(_) => Opcode::Char,
             Class(_) => Opcode::Class,
             Literal(_) => Opcode::Literal,
             Set(_) => Opcode::Set,
@@ -75,7 +75,8 @@ impl fmt::Display for Instruction<'_> {
             Jump(address) | JumpIfFail(address) | JumpIfSuccess(address) | Call(address) => {
                 write!(f, " {}", address)
             },
-            Byte(byte) | NotByte(byte) => write!(f, " {:?}", byte as char),
+            Byte(byte) => write!(f, " {}", byte),
+            Char(c) => write!(f, " {:?}", c),
             Class(character_class) => write!(f, " \\{}", character_class as u8 as char),
             Literal(string) | Set(string) | NotSet(string) => write!(f, " {:?}", string),
             Range(min, max) => write!(f, " [{}-{}]", min as char, max as char),

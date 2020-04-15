@@ -68,16 +68,26 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
         iter.jump(addr);
     }
 
+    macro_rules! match_some {
+        ($opt_len:expr) => {
+            success_flag = match $opt_len {
+                Some(len) => {
+                    state.sp += len;
+                    true
+                },
+                None => false,
+            }
+        }
+    }
+
     let mut iter = InstructionIterator::new(&bytecode);
     while let Some(instruction) = iter.next() {
         println!("  {}", instruction);
         let text_slice = &text[state.sp..];
         match instruction {
             Instruction::Any => {
-                success_flag = get_next_char(text_slice).is_some();
-                if success_flag {
-                    state.sp += 1;
-                }
+                match_some!(get_next_char(text_slice)
+                    .map(char::len_utf8));
             },
             Instruction::Succeed => {
                 success_flag = true;
@@ -135,36 +145,19 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 pop(&mut state_stack)?;
             },
             Instruction::Byte(b) => {
-                success_flag = match get_next_byte(text_slice) {
-                    Some(next_byte) => next_byte == b,
-                    None => false,
-                };
-                if success_flag {
-                    state.sp += 1;
-                }
+                match_some!(get_next_byte(text_slice)
+                    .filter(|&next_byte| next_byte == b)
+                    .and(Some(1)));
             },
-            Instruction::NotByte(b) => {
-                success_flag = match get_next_byte(text_slice) {
-                    Some(next_byte) => next_byte != b,
-                    None => false,
-                };
-                if success_flag {
-                    state.sp += 1;
-                }
+            Instruction::Char(c) => {
+                match_some!(get_next_char(text_slice)
+                    .filter(|&next_char| next_char == c)
+                    .map(char::len_utf8));
             },
-            Instruction::Class(c) => {
-                success_flag = match get_next_char(text_slice) {
-                    Some(next_char) => {
-                        if c.is_member(next_char) {
-                            state.sp += next_char.len_utf8();
-                            true
-                        }
-                        else {
-                            false
-                        }
-                    },
-                    None => false,
-                };
+            Instruction::Class(cls) => {
+                match_some!(get_next_char(text_slice)
+                    .filter(|&c| cls.is_member(c))
+                    .map(char::len_utf8));
             },
             Instruction::Literal(s) => {
                 success_flag = text_slice.starts_with(s);
@@ -173,31 +166,19 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
                 }
             },
             Instruction::Set(s) => {
-                success_flag = match get_next_char(text_slice) {
-                    Some(next_char) => s.contains(next_char),
-                    None => false,
-                };
-                if success_flag {
-                    state.sp += 1;
-                }
+                match_some!(get_next_char(text_slice)
+                    .filter(|&c| s.contains(c))
+                    .map(char::len_utf8));
             },
             Instruction::NotSet(s) => {
-                success_flag = match get_next_char(text_slice) {
-                    Some(next_char) => !s.contains(next_char),
-                    None => false,
-                };
-                if success_flag {
-                    state.sp += 1;
-                }
+                match_some!(get_next_char(text_slice)
+                    .filter(|&c| !s.contains(c))
+                    .map(char::len_utf8));
             },
             Instruction::Range(b_min, b_max) => {
-                success_flag = match get_next_byte(text_slice) {
-                    Some(next_byte) => next_byte >= b_min && next_byte <= b_max,
-                    None => false,
-                };
-                if success_flag {
-                    state.sp += 1;
-                }
+                match_some!(get_next_byte(text_slice)
+                    .filter(|&next_byte| next_byte >= b_min && next_byte <= b_max)
+                    .and(Some(1)));
             },
             Instruction::Capture(i) => {
                 let previous_state = peek(&state_stack)?;

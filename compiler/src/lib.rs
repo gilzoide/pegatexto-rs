@@ -76,8 +76,7 @@ impl Compiler {
     pub fn compile_expr(&mut self, expr: &Expression) {
         match expr {
             Expression::Char(c) => {
-                let b = *c as u8;
-                self.builder.push_instruction(&Instruction::Byte(b));
+                self.builder.push_instruction(&Instruction::Char(*c));
             },
             Expression::Literal(s) => {
                 self.builder.push_instruction(&Instruction::Literal(s));

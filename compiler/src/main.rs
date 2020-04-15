@@ -28,6 +28,6 @@ fn main() {
     let bytecode = compiler.emit();
     dump_bytecode(&bytecode);
 
-    let result = try_match(&bytecode, "oi,cabra\nda,peste");
+    let result = try_match(&bytecode, "oi,cábra\nda,peste");
     println!("{:?}", result);
 }

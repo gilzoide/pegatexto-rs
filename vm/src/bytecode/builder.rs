@@ -2,6 +2,8 @@ use super::{Bytecode, OwnedBytecode};
 use super::address::Address;
 use super::instruction::Instruction;
 
+use std::mem;
+
 #[derive(Clone)]
 pub struct Builder(Vec<u8>);
 
@@ -40,7 +42,8 @@ impl Builder {
             Jump(addr) | JumpIfFail(addr) | JumpIfSuccess(addr) | Call(addr) => {
                 self.push_address(*addr);
             },
-            Byte(b) | NotByte(b) => self.push_byte(*b),
+            Byte(b) => self.push_byte(*b),
+            Char(c) => self.push_char(*c),
             Class(c) => self.push_byte(*c as u8),
             Literal(s) | Set(s) | NotSet(s) => {
                 self.push_bytes(s.as_bytes());
@@ -73,6 +76,12 @@ impl Builder {
 
     fn push_bytes(&mut self, bytes: &[u8]) {
         self.0.extend_from_slice(bytes);
+    }
+
+    fn push_char(&mut self, c: char) {
+        let mut bytes = [0; mem::size_of::<char>()];
+        c.encode_utf8(&mut bytes);
+        self.push_bytes(&bytes[0..c.len_utf8()]);
     }
 
     fn push_address(&mut self, address: Address) {
