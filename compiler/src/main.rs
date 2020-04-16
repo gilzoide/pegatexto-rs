@@ -3,7 +3,7 @@ use pegatexto_compiler::Compiler;
 use pegatexto_disassembler::dump_bytecode;
 use pegatexto_vm::grammar::character_class::CharacterClass;
 use pegatexto_vm::grammar::expression::Expression;
-use pegatexto_vm::matcher::try_match;
+use pegatexto_vm::matcher::*;
 
 fn test_grammar() -> [(&'static str, Expression); 4] {
     use Expression::*;
@@ -28,6 +28,9 @@ fn main() {
     let bytecode = compiler.emit();
     dump_bytecode(&bytecode);
 
-    let result = try_match(&bytecode, "oi,cábra\nda,peste");
+    let result = try_match_then(&bytecode, "oi,cábra\nda,peste", |s, i, args| {
+        println!("!! ACTION {:?} {} {}", s, i, args.len());
+        args.iter().max().copied().unwrap_or(s.len())
+    });
     println!("{:?}", result);
 }

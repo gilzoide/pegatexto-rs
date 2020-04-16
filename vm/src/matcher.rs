@@ -25,6 +25,13 @@ struct MatchCapture {
 }
 
 pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
+    try_match_then(bytecode, text, |_, _, _| ()).map(|p| p.0)
+}
+
+pub fn try_match_then<F, T>(bytecode: &Bytecode, text: &str, action: F) -> Result<(usize, Option<T>), MatchError> 
+where
+    F: Fn(&str, u8, &[T]) -> T
+{
     let mut success_flag = true;
 
     let mut state = MatchState { sp: 0, qc: 0, ac: 0, ip: Address::new(0) };
@@ -197,11 +204,41 @@ pub fn try_match(bytecode: &Bytecode, text: &str) -> Result<usize, MatchError> {
 
     if success_flag {
         println!("MATCHED {:?}", capture_stack);
-        Ok(state.sp)
+        let action_result = run_action_on(text, &capture_stack, action);
+        Ok((state.sp, action_result))
     }
     else {
         Err(MatchError::NoMatch)
     }
+}
+
+fn run_action_on<F, T>(text: &str, captures: &[MatchCapture], action: F) -> Option<T>
+where
+    F: Fn(&str, u8, &[T]) -> T
+{
+    let num_captures = captures.len();
+    if num_captures == 0 {
+        return None;
+    }
+
+    let mut data_index: usize = 0;
+    let mut data_stack = Vec::new();
+    for capture in captures.iter() {
+        let argc = capture.argc as usize;
+        // "pop" arguments
+        data_index -= argc;
+        // run action with arguments (which are still stacked in `data_stack` in the right position)
+        let value = action(
+            &text[capture.start .. capture.end],
+            capture.id,
+            &data_stack[data_index .. data_index + argc]
+        );
+        data_stack.truncate(data_index);
+        data_stack.push(value);
+        // "push" result
+        data_index += 1;
+    }
+    Some(data_stack.swap_remove(0))
 }
 
 #[cfg(test)]
