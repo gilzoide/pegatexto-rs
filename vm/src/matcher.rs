@@ -39,33 +39,43 @@ where
 
     let mut capture_stack = Vec::new();
 
+    let mut iter = InstructionIterator::new(&bytecode);
+
     fn get_next_byte(text_slice: &str) -> Option<u8> {
         text_slice.as_bytes().get(0).copied()
     }
     fn get_next_char(text_slice: &str) -> Option<char> {
         text_slice.chars().next()
     }
-    fn push(state_stack: &mut Vec<MatchState>, state: MatchState, ac: usize, ip: Address) -> MatchState {
-        let state = MatchState {
-            ip: ip,
-            ac: ac as i32,
-            ..state
-        };
-        //println!(">> Push {:?}", state);
-        state_stack.push(state);
-        state
+    macro_rules! push {
+        () => {
+            {
+                let state = MatchState {
+                    ip: iter.current(),
+                    ac: capture_stack.len() as i32,
+                    ..state
+                };
+                //println!(">> Push {:?}", state);
+                state_stack.push(state);
+                state
+            }
+        }
     }
-    fn peek(state_stack: &Vec<MatchState>) -> Result<MatchState, MatchError> {
-        state_stack.last().copied().ok_or(MatchError::UnmatchedPop)
+    macro_rules! peek {
+        () => {
+            state_stack.last().copied().ok_or(MatchError::UnmatchedPop)
+        }
     }
-    fn pop(state_stack: &mut Vec<MatchState>) -> Result<MatchState, MatchError> {
-        state_stack.pop().ok_or(MatchError::UnmatchedPop)
+    macro_rules! pop {
+        () => {
+            state_stack.pop().ok_or(MatchError::UnmatchedPop)
+        }
     }
-    fn jump(iter: &mut InstructionIterator, addr: Address) {
-        //println!("== Jump {:?}", addr);
-        iter.jump(addr);
+    macro_rules! jump {
+        ($addr:expr) => {
+            iter.jump($addr);
+        }
     }
-
     macro_rules! match_some {
         ($opt_len:expr) => {
             success_flag = match $opt_len {
@@ -78,7 +88,6 @@ where
         }
     }
 
-    let mut iter = InstructionIterator::new(&bytecode);
     while let Some(instruction) = iter.next() {
         //println!("  {}", instruction);
         let text_slice = &text[state.sp..];
@@ -100,47 +109,47 @@ where
                 success_flag = !success_flag;
             },
             Instruction::QuantifierInit => {
-                state = push(&mut state_stack, state, capture_stack.len(), iter.current());
+                state = push!();
                 state.qc = 0;
             },
             Instruction::QuantifierNext => {
                 if success_flag {
                     state.qc += 1;
-                    jump(&mut iter, state.ip);
+                    jump!(state.ip);
                 }
             },
             Instruction::Jump(addr) => {
-                jump(&mut iter, addr);
+                jump!(addr);
             },
             Instruction::JumpIfFail(addr) => {
                 if !success_flag {
-                    jump(&mut iter, addr);
+                    jump!(addr);
                 }
             },
             Instruction::JumpIfSuccess(addr) => {
                 if success_flag {
-                    jump(&mut iter, addr);
+                    jump!(addr);
                 }
             },
             Instruction::Call(addr) => {
-                state = push(&mut state_stack, state, capture_stack.len(), iter.current());
-                jump(&mut iter, addr);
+                state = push!();
+                jump!(addr);
             },
             Instruction::Return => {
-                match pop(&mut state_stack) {
-                    Ok(s) => jump(&mut iter, s.ip),
+                match pop!() {
+                    Ok(s) => jump!(s.ip),
                     Err(_) => break,
                 }
             },
             Instruction::Push => {
-                state = push(&mut state_stack, state, capture_stack.len(), iter.current());
+                state = push!();
             },
             Instruction::Peek => {
-                state = peek(&state_stack)?;
-                capture_stack.resize_with(state.ac as usize, Default::default);
+                state = peek!()?;
+                capture_stack.truncate(state.ac as usize);
             },
             Instruction::Pop => {
-                pop(&mut state_stack)?;
+                pop!()?;
             },
             Instruction::Byte(b) => {
                 match_some!(get_next_byte(text_slice)
@@ -158,10 +167,9 @@ where
                     .map(char::len_utf8));
             },
             Instruction::Literal(s) => {
-                success_flag = text_slice.starts_with(s);
-                if success_flag {
-                    state.sp += s.len();
-                }
+                match_some!(Some(text_slice)
+                    .filter(|text_slice| text_slice.starts_with(s))
+                    .map(str::len));
             },
             Instruction::Set(s) => {
                 match_some!(get_next_char(text_slice)
@@ -179,7 +187,7 @@ where
                     .and(Some(1)));
             },
             Instruction::Capture(i) => {
-                let previous_state = peek(&state_stack)?;
+                let previous_state = peek!()?;
                 let capture = MatchCapture {
                     start: previous_state.sp,
                     end: state.sp,
