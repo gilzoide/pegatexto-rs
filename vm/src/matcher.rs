@@ -45,33 +45,24 @@ where
     fn get_next_char(text_slice: &str) -> Option<char> {
         text_slice.chars().next()
     }
-    fn push(state_stack: &mut Vec<MatchState>, mut state: MatchState, ac: usize, ip: Address) -> MatchState {
-        state.ip = ip;
-        state.ac = ac as i32;
-        println!(">> Push {:?}", state);
+    fn push(state_stack: &mut Vec<MatchState>, state: MatchState, ac: usize, ip: Address) -> MatchState {
+        let state = MatchState {
+            ip: ip,
+            ac: ac as i32,
+            ..state
+        };
+        //println!(">> Push {:?}", state);
         state_stack.push(state);
         state
     }
     fn peek(state_stack: &Vec<MatchState>) -> Result<MatchState, MatchError> {
-        match state_stack.last() {
-            Some(state) => Ok(*state),
-            None => Err(MatchError::UnmatchedPop),
-        }
+        state_stack.last().copied().ok_or(MatchError::UnmatchedPop)
     }
     fn pop(state_stack: &mut Vec<MatchState>) -> Result<MatchState, MatchError> {
-        match state_stack.pop() {
-            Some(s) => {
-                println!("<< Pop {:?}", s); 
-                Ok(s)
-            },
-            None => {
-                println!("<< Pop empty");
-                Err(MatchError::UnmatchedPop)
-            },
-        }
+        state_stack.pop().ok_or(MatchError::UnmatchedPop)
     }
     fn jump(iter: &mut InstructionIterator, addr: Address) {
-        println!("== Jump {:?}", addr);
+        //println!("== Jump {:?}", addr);
         iter.jump(addr);
     }
 
@@ -89,7 +80,7 @@ where
 
     let mut iter = InstructionIterator::new(&bytecode);
     while let Some(instruction) = iter.next() {
-        println!("  {}", instruction);
+        //println!("  {}", instruction);
         let text_slice = &text[state.sp..];
         match instruction {
             Instruction::Any => {
@@ -196,14 +187,14 @@ where
                     id: i,
                 };
                 capture_stack.push(capture);
-                println!("== Capture {:?} (ac: {})", &text[capture.start..capture.end], capture.argc);
+                //println!("== Capture {:?} (ac: {})", &text[capture.start..capture.end], capture.argc);
             },
             Instruction::Halt(_opt_err) => break,
         }
     }
 
     if success_flag {
-        println!("MATCHED {:?}", capture_stack);
+        //println!("MATCHED {:?}", capture_stack);
         let action_result = run_action_on(text, &capture_stack, action);
         Ok((state.sp, action_result))
     }
